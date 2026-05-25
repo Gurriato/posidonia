@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import json
 
 # Configuración de la página web de la aplicación
@@ -119,7 +119,7 @@ def guardar_propuesta():
         "sec3_objetivos": st.session_state.get("sec3_objetivos", ""),
         "sec3_limitaciones": st.session_state.get("sec3_limitaciones", ""),
         "sec3_arquitectura": st.session_state.get("sec3_arquitectura", ""),
-        "sec4_cronograma": json.dumps(st.session_state.df_cronograma.to_dict(orient="records"), ensure_ascii=False) if "df_cronograma" in st.session_state else "",
+        "sec4_cronograma": json.dumps([{k: (v.isoformat() if isinstance(v, (datetime, date)) else v) for k, v in row.items()} for row in st.session_state.df_cronograma.to_dict(orient="records")], ensure_ascii=False) if "df_cronograma" in st.session_state else "",
         "sec6_criterios": st.session_state.sec6_criterios,
         "sec7_contacto": st.session_state.sec7_contacto,
         "updated_at": datetime.now().isoformat()
