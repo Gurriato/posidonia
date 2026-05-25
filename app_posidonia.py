@@ -374,6 +374,13 @@ with tab1:
 # PESTAÑA 2: SIMULADOR FINANCIERO (TOTALMENTE INTACTA EN LÓGICA / COREGIDO SYNTAX WIDTH)
 # =========================================================================
 with tab2:
+    # --- APLICAR PARÁMETROS CARGADOS (ANTES de renderizar widgets) ---
+    if "_cargar_params" in st.session_state:
+        for _k, _v in st.session_state.pop("_cargar_params").items():
+            st.session_state[_k] = _v
+    if "_mensaje" in st.session_state:
+        st.success(st.session_state.pop("_mensaje"))
+
     # --- 1. ENTRADA DE VARIABLES (Side-bar) ---
     st.sidebar.header("⚙️ Variables del Simulador")
     num_drones = st.sidebar.number_input("Número de Nodos (Dron + Cámara)", min_value=1, max_value=100, value=2, step=1, key="sim_num_drones")
@@ -539,23 +546,25 @@ with tab2:
         with col_load:
             if st.button("📂 Cargar Simulación", use_container_width=True):
                 if params_preview:
-                    st.session_state.sim_num_drones = params_preview["num_drones"]
-                    st.session_state.sim_precio = params_preview["precio_estacion"]
-                    st.session_state.sim_dcto = params_preview["dcto_volumen"] * 100
-                    st.session_state.sim_sw = params_preview["sw_base"]
-                    st.session_state.sim_sora = params_preview["sora_base"]
+                    st.session_state._cargar_params = {
+                        "sim_num_drones": params_preview["num_drones"],
+                        "sim_precio": params_preview["precio_estacion"],
+                        "sim_dcto": params_preview["dcto_volumen"] * 100,
+                        "sim_sw": params_preview["sw_base"],
+                        "sim_sora": params_preview["sora_base"],
+                    }
                     if "capex_df" in res_preview:
                         st.session_state.capex_editor = pd.DataFrame(res_preview["capex_df"])
                     if "opex_df" in res_preview:
                         st.session_state.opex_editor = pd.DataFrame(res_preview["opex_df"])
                     if "subv_df" in res_preview:
                         st.session_state.subv_editor = pd.DataFrame(res_preview["subv_df"])
-                    st.success(f"Simulación '{nombre_sel}' cargada. Revisa los parámetros en el sidebar.")
+                    st.session_state._mensaje = f"Simulación '{nombre_sel}' cargada"
                     st.rerun()
         with col_del:
             if st.button("🗑️ Eliminar Simulación", use_container_width=True):
                 eliminar_simulacion(nombre_sel)
-                st.success(f"Simulación '{nombre_sel}' eliminada")
+                st.session_state._mensaje = f"Simulación '{nombre_sel}' eliminada"
                 st.rerun()
     else:
         st.info("No hay simulaciones guardadas todavía")
