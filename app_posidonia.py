@@ -3,11 +3,102 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta
-import sqlite3
 import json
 
 # Configuración de la página web de la aplicación
 st.set_page_config(page_title="Propuesta Pliego: Sistema Posidonia", layout="wide", initial_sidebar_state="expanded")
+
+# --- BASE DE DATOS (SUPABASE con fallback SQLite local) ---
+SUPABASE_DISPONIBLE = False
+_supabase = None
+
+try:
+    from supabase import create_client
+    if "supabase" in st.secrets:
+        _supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
+        _supabase.table("simulaciones").select("id").limit(1).execute()
+        SUPABASE_DISPONIBLE = True
+except Exception:
+    pass
+
+if not SUPABASE_DISPONIBLE:
+    import sqlite3
+    _sqlite_conn = sqlite3.connect('posidonia.db')
+    _sqlite_conn.execute('''CREATE TABLE IF NOT EXISTS simulaciones
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  nombre TEXT UNIQUE,
+                  fecha TEXT,
+                  parametros TEXT,
+                  resultados TEXT)''')
+    _sqlite_conn.commit()
+    _sqlite_conn.close()
+
+def guardar_simulacion(nombre, parametros, resultados):
+    data = {
+        "nombre": nombre,
+        "fecha": datetime.now().isoformat(),
+        "parametros": json.dumps(parametros, ensure_ascii=False),
+        "resultados": json.dumps(resultados, ensure_ascii=False)
+    }
+    if SUPABASE_DISPONIBLE:
+        try:
+            _supabase.table("simulaciones").insert(data).execute()
+            return True
+        except Exception:
+            return False
+    else:
+        import sqlite3
+        conn = sqlite3.connect('posidonia.db')
+        c = conn.cursor()
+        try:
+            c.execute("INSERT INTO simulaciones (nombre, fecha, parametros, resultados) VALUES (?, ?, ?, ?)",
+                      (nombre, data["fecha"], data["parametros"], data["resultados"]))
+            conn.commit()
+            return True
+        except sqlite3.IntegrityError:
+            return False
+        finally:
+            conn.close()
+
+def eliminar_simulacion(nombre):
+    if SUPABASE_DISPONIBLE:
+        _supabase.table("simulaciones").delete().eq("nombre", nombre).execute()
+    else:
+        import sqlite3
+        conn = sqlite3.connect('posidonia.db')
+        c = conn.cursor()
+        c.execute("DELETE FROM simulaciones WHERE nombre=?", (nombre,))
+        conn.commit()
+        conn.close()
+
+def cargar_simulacion(nombre):
+    if SUPABASE_DISPONIBLE:
+        res = _supabase.table("simulaciones").select("parametros,resultados").eq("nombre", nombre).execute()
+        if res.data:
+            return json.loads(res.data[0]["parametros"]), json.loads(res.data[0]["resultados"])
+    else:
+        import sqlite3
+        conn = sqlite3.connect('posidonia.db')
+        c = conn.cursor()
+        c.execute("SELECT parametros, resultados FROM simulaciones WHERE nombre=?", (nombre,))
+        row = c.fetchone()
+        conn.close()
+        if row:
+            return json.loads(row[0]), json.loads(row[1])
+    return None, None
+
+def listar_simulaciones():
+    if SUPABASE_DISPONIBLE:
+        res = _supabase.table("simulaciones").select("nombre,fecha").order("fecha", desc=True).execute()
+        return [(r["nombre"], r["fecha"]) for r in res.data] if res.data else []
+    else:
+        import sqlite3
+        conn = sqlite3.connect('posidonia.db')
+        c = conn.cursor()
+        c.execute("SELECT nombre, fecha FROM simulaciones ORDER BY fecha DESC")
+        rows = c.fetchall()
+        conn.close()
+        return rows
 
 # --- FUNCIÓN DE FORMATEO EUROPEO ---
 def fmt(valor, dees=0):
@@ -17,59 +108,6 @@ def fmt(valor, dees=0):
         return valor
     s = f"{valor:,.{dees}f}"
     return s.replace(",", "X").replace(".", ",").replace("X", ".")
-
-# --- BASE DE DATOS SQLITE ---
-def init_db():
-    conn = sqlite3.connect('posidonia.db')
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS simulaciones
-                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                  nombre TEXT UNIQUE,
-                  fecha TEXT,
-                  parametros TEXT,
-                  resultados TEXT)''')
-    conn.commit()
-    conn.close()
-
-init_db()
-
-def guardar_simulacion(nombre, parametros, resultados):
-    conn = sqlite3.connect('posidonia.db')
-    c = conn.cursor()
-    try:
-        c.execute("INSERT INTO simulaciones (nombre, fecha, parametros, resultados) VALUES (?, ?, ?, ?)",
-                  (nombre, datetime.now().isoformat(), json.dumps(parametros, ensure_ascii=False), json.dumps(resultados, ensure_ascii=False)))
-        conn.commit()
-        return True
-    except sqlite3.IntegrityError:
-        return False
-    finally:
-        conn.close()
-
-def eliminar_simulacion(nombre):
-    conn = sqlite3.connect('posidonia.db')
-    c = conn.cursor()
-    c.execute("DELETE FROM simulaciones WHERE nombre=?", (nombre,))
-    conn.commit()
-    conn.close()
-
-def cargar_simulacion(nombre):
-    conn = sqlite3.connect('posidonia.db')
-    c = conn.cursor()
-    c.execute("SELECT parametros, resultados FROM simulaciones WHERE nombre=?", (nombre,))
-    row = c.fetchone()
-    conn.close()
-    if row:
-        return json.loads(row[0]), json.loads(row[1])
-    return None, None
-
-def listar_simulaciones():
-    conn = sqlite3.connect('posidonia.db')
-    c = conn.cursor()
-    c.execute("SELECT nombre, fecha FROM simulaciones ORDER BY fecha DESC")
-    rows = c.fetchall()
-    conn.close()
-    return rows
 
 # --- INICIALIZAR ESTADO DE SESIÓN ---
 if "edit_mode" not in st.session_state:
@@ -366,6 +404,9 @@ with tab2:
 
     st.divider()
     st.subheader("💾 Guardar / Cargar Simulación")
+
+    if not SUPABASE_DISPONIBLE:
+        st.warning("📦 Usando SQLite local. En Streamlit Cloud, configura Supabase en los Secrets para que los datos persistan.")
 
     col_save1, col_save2 = st.columns([2, 1])
     with col_save1:
