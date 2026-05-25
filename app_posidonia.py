@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta, date
-import json
+import json, re, base64
 
 # Configuración de la página web de la aplicación
 st.set_page_config(page_title="Propuesta Pliego: Sistema Posidonia", layout="wide", initial_sidebar_state="expanded")
@@ -177,6 +177,18 @@ def fmt(valor, dees=0):
     s = f"{valor:,.{dees}f}"
     return s.replace(",", "X").replace(".", ",").replace("X", ".")
 
+def _md(content):
+    def _reemplazar(m):
+        alt, ruta = m.groups()
+        try:
+            with open(ruta, "rb") as f:
+                b64 = base64.b64encode(f.read()).decode()
+            ext = ruta.rsplit(".", 1)[-1]
+            return f"![{alt}](data:image/{ext};base64,{b64})"
+        except Exception:
+            return m.group(0)
+    return st.markdown(re.sub(r"!\[([^\]]*)\]\(((?:img/)?[^)]+)\)", _reemplazar, content))
+
 # --- INICIALIZAR ESTADO DE SESIÓN ---
 if "edit_mode" not in st.session_state:
     st.session_state.edit_mode = False
@@ -288,7 +300,7 @@ with tab1:
             if st.button("💾", key="save_sec1", help="Guardar", use_container_width=True):
                 guardar_propuesta()
     else:
-        st.markdown(st.session_state.sec1_resumen)
+        _md(st.session_state.sec1_resumen)
     
     # 2. INFORMACIÓN Y CONTEXTO DE LA EMPRESA
     st.header("2. Información y Contexto de la Empresa")
@@ -299,7 +311,7 @@ with tab1:
             if st.button("💾", key="save_sec2", help="Guardar", use_container_width=True):
                 guardar_propuesta()
     else:
-        st.markdown(st.session_state.sec2_empresa)
+        _md(st.session_state.sec2_empresa)
     
     st.divider()
 
@@ -320,11 +332,9 @@ with tab1:
     else:
         col_scope1, col_scope2 = st.columns(2)
         with col_scope1:
-            st.markdown("**Objetivos Específicos & Entregables:**")
-            st.markdown(st.session_state.sec3_objetivos)
+            _md("**Objetivos Específicos & Entregables:**\n\n" + st.session_state.sec3_objetivos)
         with col_scope2:
-            st.markdown("**Limitaciones (Fuera de Alcance):**")
-            st.markdown(st.session_state.sec3_limitaciones)
+            _md("**Limitaciones (Fuera de Alcance):**\n\n" + st.session_state.sec3_limitaciones)
 
     st.subheader("🖥️ Arquitectura Lógica de la Solución")
     if st.session_state.edit_mode:
@@ -334,7 +344,7 @@ with tab1:
             if st.button("💾", key="save_sec3c", help="Guardar", use_container_width=True):
                 guardar_propuesta()
     else:
-        st.markdown(st.session_state.sec3_arquitectura)
+        _md(st.session_state.sec3_arquitectura)
 
     st.divider()
 
@@ -460,10 +470,10 @@ with tab1:
             if st.button("💾", key="save_sec6", help="Guardar esta sección", use_container_width=True):
                 guardar_propuesta()
     else:
-        st.markdown(st.session_state.sec6_criterios)
-
+        _md(st.session_state.sec6_criterios)
+ 
     st.divider()
-
+ 
     # 7. PUNTOS DE CONTACTO Y ASPECTOS LEGALES
     st.header("7. Puntos de Contacto y Aspectos Legal")
     if st.session_state.edit_mode:
@@ -475,7 +485,7 @@ with tab1:
             if st.button("💾", key="save_sec7", help="Guardar esta sección", use_container_width=True):
                 guardar_propuesta()
     else:
-        st.markdown(st.session_state.sec7_contacto)
+        _md(st.session_state.sec7_contacto)
 
 # =========================================================================
 # PESTAÑA 2: SIMULADOR FINANCIERO (TOTALMENTE INTACTA EN LÓGICA / COREGIDO SYNTAX WIDTH)
