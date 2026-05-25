@@ -3,6 +3,8 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta
+import sqlite3
+import json
 
 # Configuración de la página web de la aplicación
 st.set_page_config(page_title="Propuesta Pliego: Sistema Posidonia", layout="wide", initial_sidebar_state="expanded")
@@ -16,6 +18,87 @@ def fmt(valor, dees=0):
     s = f"{valor:,.{dees}f}"
     return s.replace(",", "X").replace(".", ",").replace("X", ".")
 
+# --- BASE DE DATOS SQLITE ---
+def init_db():
+    conn = sqlite3.connect('posidonia.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS simulaciones
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  nombre TEXT UNIQUE,
+                  fecha TEXT,
+                  parametros TEXT,
+                  resultados TEXT)''')
+    conn.commit()
+    conn.close()
+
+init_db()
+
+def guardar_simulacion(nombre, parametros, resultados):
+    conn = sqlite3.connect('posidonia.db')
+    c = conn.cursor()
+    try:
+        c.execute("INSERT INTO simulaciones (nombre, fecha, parametros, resultados) VALUES (?, ?, ?, ?)",
+                  (nombre, datetime.now().isoformat(), json.dumps(parametros, ensure_ascii=False), json.dumps(resultados, ensure_ascii=False)))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+def eliminar_simulacion(nombre):
+    conn = sqlite3.connect('posidonia.db')
+    c = conn.cursor()
+    c.execute("DELETE FROM simulaciones WHERE nombre=?", (nombre,))
+    conn.commit()
+    conn.close()
+
+def cargar_simulacion(nombre):
+    conn = sqlite3.connect('posidonia.db')
+    c = conn.cursor()
+    c.execute("SELECT parametros, resultados FROM simulaciones WHERE nombre=?", (nombre,))
+    row = c.fetchone()
+    conn.close()
+    if row:
+        return json.loads(row[0]), json.loads(row[1])
+    return None, None
+
+def listar_simulaciones():
+    conn = sqlite3.connect('posidonia.db')
+    c = conn.cursor()
+    c.execute("SELECT nombre, fecha FROM simulaciones ORDER BY fecha DESC")
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
+# --- INICIALIZAR ESTADO DE SESIÓN ---
+if "edit_mode" not in st.session_state:
+    st.session_state.edit_mode = False
+
+if "sec1_resumen" not in st.session_state:
+    st.session_state.sec1_resumen = """La presente propuesta tecnológica responde a la necesidad crítica de proteger de manera eficiente y escalable las praderas de *Posidonia oceanica* en el archipiélago balear, iniciando con una fase piloto optimizada en la isla de Formentera. 
+
+Nuestra solución cambia el paradigma de la vigilancia marina: eliminamos el patrullaje analógico y ciego mediante embarcaciones tripuladas y lo sustituimos por un sistema de **interceptación quirúrgica automatizada**. Combinando cámaras de análisis costero continuo, intersección geoespacial (GIS) y estaciones de drones autónomos (*Drone-in-a-Box*), el sistema solo actúa cuando se detecta una infracción probable, minimizando costes operativos y garantizando evidencias legales irrefutables con impacto ambiental inmediato."""
+
+if "sec2_empresa" not in st.session_state:
+    st.session_state.sec2_empresa = """Somos una compañía de base tecnológica de nueva creación (S.L.) especializada en ingeniería de automatización y soluciones de impacto ambiental (*Green-Tech*). Nuestra estructura corporativa ágil está integrada por un equipo interdisciplinar de **tres profesionales especialistas**, cuyo equilibrio competencial minimiza el riesgo de ejecución del proyecto:
+
+* **Dirección de Inteligencia Artificial & Sistemas:** Ingeniero especialista en el diseño de modelos de visión artificial, encargado de la arquitectura de la red neural, el pipeline de procesamiento de datos y la homografía matemática de las cámaras de costa.
+* **Dirección de Arquitectura de Datos & Big Data:** Ingeniera de origen colombiano especialista en el modelado, optimización y securización de bases de datos masivas geoespaciales (GIS) y sincronización cloud en tiempo real. Su incorporación aporta el perfil de diversidad clave para el acceso prioritario a fondos tecnológicos europeos de discriminación positiva (*Women TechEU*).
+* **Dirección Legal, Regulación & Riesgos:** Abogado especialista en derecho aeronáutico y gestión de riesgos operativos, encargado del desarrollo de los estudios de seguridad aeronáutica SORA, interlocución con AESA y el blindaje legal de las evidencias capturadas para su validez en los expedientes sancionadores."""
+
+if "sec6_criterios" not in st.session_state:
+    st.session_state.sec6_criterios = """Nuestra propuesta destaca en los pliegos públicos al ofrecer las mejores métricas de eficiencia integral:
+* **Adecuación Tecnológica (40%):** Arquitectura basada en alertas pasivas que elimina el ruido innecesario de sobrevuelo constante en playas y respeta al completo el RGPD al auditar solo naves en presunta infracción.
+* **Eficiencia Económica (30%):** Reducción acreditada de más del 70% del coste operativo actual frente al uso de patrulleras neumáticas convencionales con tripulación física.
+* **Soporte Post-Implementación & SLA (20%):** Compromiso de monitorización cloud remota continua y sustitución/reparación de nodos de hardware en un plazo máximo de 24 horas durante los meses de campaña.
+* **Criterio de Impacto Sostenible (10%):** Huella de carbono cero en las misiones operativas directas al operar con vectores energéticos limpios y eléctricos (recarga en Dock)."""
+
+if "sec7_contacto" not in st.session_state:
+    st.session_state.sec7_contacto = """* **Canal Único de Comunicación:** Para la resolución de dudas sobre la presente propuesta o el despliegue del MVP en Formentera, se centralizarán las comunicaciones en el correo técnico: `contact@posidonia-monitoring.tech`.
+* **Acuerdo de Confidencialidad (NDA):** Toda la información relativa al código de homografía, pesos de la red neural e información cartográfica propietaria está sujeta a secreto industrial estricto.
+* **Cláusula de Salvaguarda Legal:** La entrega de este documento se realiza en concepto de propuesta técnica para licitación y no constituye obligación contractual de prestación de servicios hasta la firma definitiva del pliego y formalización de la adjudicación por el órgano competente."""
+
 # --- PANTALLA PRINCIPAL: SISTEMA DE PESTAÑAS ---
 tab1, tab2 = st.tabs(["📄 Propuesta Formal RFP & Gantt", "📊 Simulador Financiero & ROI"])
 
@@ -27,25 +110,23 @@ with tab1:
     st.markdown("**Destinatario:** Govern de les Illes Balears - Conselleria d'Agricultura, Pesca i Medi Natural")
     st.write("Servicio Llave en Mano (DaaS) de Inspección y Alertas de Fondeo Ilegal mediante Inteligencia Artificial")
     
+    st.session_state.edit_mode = st.checkbox("✏️ Editar contenido de la propuesta")
+    
     st.divider()
     
     # 1. RESUMEN EJECUTIVO
     st.header("1. Resumen Ejecutivo (Executive Summary)")
-    st.markdown("""
-    La presente propuesta tecnológica responde a la necesidad crítica de proteger de manera eficiente y escalable las praderas de *Posidonia oceanica* en el archipiélago balear, iniciando con una fase piloto optimizada en la isla de Formentera. 
-    
-    Nuestra solución cambia el paradigma de la vigilancia marina: eliminamos el patrullaje analógico y ciego mediante embarcaciones tripuladas y lo sustituimos por un sistema de **interceptación quirúrgica automatizada**. Combinando cámaras de análisis costero continuo, intersección geoespacial (GIS) y estaciones de drones autónomos (*Drone-in-a-Box*), el sistema solo actúa cuando se detecta una infracción probable, minimizando costes operativos y garantizando evidencias legales irrefutables con impacto ambiental inmediato.
-    """)
+    if st.session_state.edit_mode:
+        st.session_state.sec1_resumen = st.text_area("Editar Resumen Ejecutivo", value=st.session_state.sec1_resumen, height=200)
+    else:
+        st.markdown(st.session_state.sec1_resumen)
     
     # 2. INFORMACIÓN Y CONTEXTO DE LA EMPRESA
     st.header("2. Información y Contexto de la Empresa")
-    st.markdown("""
-    Somos una compañía de base tecnológica de nueva creación (S.L.) especializada en ingeniería de automatización y soluciones de impacto ambiental (*Green-Tech*). Nuestra estructura corporativa ágil está integrada por un equipo interdisciplinar de **tres profesionales especialistas**, cuyo equilibrio competencial minimiza el riesgo de ejecución del proyecto:
-    
-    * **Dirección de Inteligencia Artificial & Sistemas:** Ingeniero especialista en el diseño de modelos de visión artificial, encargado de la arquitectura de la red neural, el pipeline de procesamiento de datos y la homografía matemática de las cámaras de costa.
-    * **Dirección de Arquitectura de Datos & Big Data:** Ingeniera de origen colombiano especialista en el modelado, optimización y securización de bases de datos masivas geoespaciales (GIS) y sincronización cloud en tiempo real. Su incorporación aporta el perfil de diversidad clave para el acceso prioritario a fondos tecnológicos europeos de discriminación positiva (*Women TechEU*).
-    * **Dirección Legal, Regulación & Riesgos:** Abogado especialista en derecho aeronáutico y gestión de riesgos operativos, encargado del desarrollo de los estudios de seguridad aeronáutica SORA, interlocución con AESA y el blindaje legal de las evidencias capturadas para su validez en los expedientes sancionadores.
-    """)
+    if st.session_state.edit_mode:
+        st.session_state.sec2_empresa = st.text_area("Editar Información de la Empresa", value=st.session_state.sec2_empresa, height=250)
+    else:
+        st.markdown(st.session_state.sec2_empresa)
     
     st.divider()
 
@@ -161,23 +242,19 @@ with tab1:
 
     # 6. CRITERIOS DE EVALUACIÓN
     st.header("6. Criterios de Baremación y Evaluación")
-    st.markdown("""
-    Nuestra propuesta destaca en los pliegos públicos al ofrecer las mejores métricas de eficiencia integral:
-    * **Adecuación Tecnológica (40%):** Arquitectura basada en alertas pasivas que elimina el ruido innecesario de sobrevuelo constante en playas y respeta al completo el RGPD al auditar solo naves en presunta infracción.
-    * **Eficiencia Económica (30%):** Reducción acreditada de más del 70% del coste operativo actual frente al uso de patrulleras neumáticas convencionales con tripulación física.
-    * **Soporte Post-Implementación & SLA (20%):** Compromiso de monitorización cloud remota continua y sustitución/reparación de nodos de hardware en un plazo máximo de 24 horas durante los meses de campaña.
-    * **Criterio de Impacto Sostenible (10%):** Huella de carbono cero en las misiones operativas directas al operar con vectores energéticos limpios y eléctricos (recarga en Dock).
-    """)
+    if st.session_state.edit_mode:
+        st.session_state.sec6_criterios = st.text_area("Editar Criterios de Evaluación", value=st.session_state.sec6_criterios, height=200)
+    else:
+        st.markdown(st.session_state.sec6_criterios)
 
     st.divider()
 
     # 7. PUNTOS DE CONTACTO Y ASPECTOS LEGALES
     st.header("7. Puntos de Contacto y Aspectos Legal")
-    st.markdown("""
-    * **Canal Único de Comunicación:** Para la resolución de dudas sobre la presente propuesta o el despliegue del MVP en Formentera, se centralizarán las comunicaciones en el correo técnico: `contact@posidonia-monitoring.tech`.
-    * **Acuerdo de Confidencialidad (NDA):** Toda la información relativa al código de homografía, pesos de la red neural e información cartográfica propietaria está sujeta a secreto industrial estricto.
-    * **Cláusula de Salvaguarda Legal:** La entrega de este documento se realiza en concepto de propuesta técnica para licitación y no constituye obligación contractual de prestación de servicios hasta la firma definitiva del pliego y formalización de la adjudicación por el órgano competente.
-    """)
+    if st.session_state.edit_mode:
+        st.session_state.sec7_contacto = st.text_area("Editar Contacto y Legal", value=st.session_state.sec7_contacto, height=200)
+    else:
+        st.markdown(st.session_state.sec7_contacto)
 
 # =========================================================================
 # PESTAÑA 2: SIMULADOR FINANCIERO (TOTALMENTE INTACTA EN LÓGICA / COREGIDO SYNTAX WIDTH)
@@ -185,11 +262,11 @@ with tab1:
 with tab2:
     # --- 1. ENTRADA DE VARIABLES (Side-bar) ---
     st.sidebar.header("⚙️ Variables del Simulador")
-    num_drones = st.sidebar.number_input("Número de Nodos (Dron + Cámara)", min_value=1, max_value=100, value=2, step=1)
-    precio_estacion = st.sidebar.number_input("Precio Pliego / Temporada (€)", min_value=0, value=30000, step=1000)
-    dcto_volumen = st.sidebar.number_input("Descuento Volumen (%)", min_value=0.0, max_value=100.0, value=7.0, step=0.5) / 100
-    sw_base = st.sidebar.number_input("Desarrollo SW Core IA (€)", min_value=0, value=12000, step=500)
-    sora_base = st.sidebar.number_input("Trámite AESA Base (€)", min_value=0, value=4500, step=500)
+    num_drones = st.sidebar.number_input("Número de Nodos (Dron + Cámara)", min_value=1, max_value=100, value=2, step=1, key="sim_num_drones")
+    precio_estacion = st.sidebar.number_input("Precio Pliego / Temporada (€)", min_value=0, value=30000, step=1000, key="sim_precio")
+    dcto_volumen = st.sidebar.number_input("Descuento Volumen (%)", min_value=0.0, max_value=100.0, value=7.0, step=0.5, key="sim_dcto") / 100
+    sw_base = st.sidebar.number_input("Desarrollo SW Core IA (€)", min_value=0, value=12000, step=500, key="sim_sw")
+    sora_base = st.sidebar.number_input("Trámite AESA Base (€)", min_value=0, value=4500, step=500, key="sim_sora")
 
     # --- 2. CÁLCULO INICIAL ---
     init_hw_dron = 13500 * num_drones * (1 - dcto_volumen)
@@ -280,3 +357,70 @@ with tab2:
     fig_esc.update_layout(xaxis_title="Número de Drones", yaxis_title="Gasto Total Año 1 (€)", template="plotly_white")
     # FIX: Cambio por width='stretch'
     st.plotly_chart(fig_esc, width='stretch')
+
+    st.divider()
+    st.subheader("💾 Guardar / Cargar Simulación")
+
+    col_save1, col_save2 = st.columns([2, 1])
+    with col_save1:
+        sim_nombre = st.text_input("Nombre de la simulación", placeholder="Ej: Escenario optimista 2027", key="sim_nombre_input")
+    with col_save2:
+        if st.button("💾 Guardar Simulación", use_container_width=True):
+            if sim_nombre.strip():
+                parametros = {
+                    "num_drones": int(num_drones),
+                    "precio_estacion": int(precio_estacion),
+                    "dcto_volumen": float(dcto_volumen),
+                    "sw_base": int(sw_base),
+                    "sora_base": int(sora_base)
+                }
+                resultados = {
+                    "total_capex": int(total_capex),
+                    "total_opex_anual": int(total_opex_anual),
+                    "total_ayudas": int(total_ayudas),
+                    "total_fondo_perdido": int(total_fondo_perdido),
+                    "exposicion": int(exposicion),
+                    "flujo_acum_5anos": [int(f) for f in lista_flujo_acum]
+                }
+                if guardar_simulacion(sim_nombre.strip(), parametros, resultados):
+                    st.success(f"Simulación '{sim_nombre}' guardada")
+                else:
+                    st.error(f"Ya existe una simulación llamada '{sim_nombre}'. Usa otro nombre.")
+            else:
+                st.warning("Introduce un nombre para la simulación")
+
+    simulaciones = listar_simulaciones()
+    if simulaciones:
+        opciones = [f"{nom} ({fecha[:10]})" for nom, fecha in simulaciones]
+        nom_select = st.selectbox("Cargar simulación guardada", opciones, key="sim_lista")
+        
+        idx_sel = opciones.index(nom_select)
+        nombre_sel = simulaciones[idx_sel][0]
+        params_preview, res_preview = cargar_simulacion(nombre_sel)
+        
+        if params_preview and res_preview:
+            st.markdown(f"**Vista previa de '{nombre_sel}':**")
+            pcol1, pcol2, pcol3, pcol4 = st.columns(4)
+            pcol1.metric("Drones", params_preview["num_drones"])
+            pcol2.metric("CAPEX", f"{fmt(res_preview['total_capex'])} €")
+            pcol3.metric("OPEX Anual", f"{fmt(res_preview['total_opex_anual'])} €")
+            pcol4.metric("Ayudas", f"{fmt(res_preview['total_ayudas'])} €")
+        
+        col_load, col_del = st.columns(2)
+        with col_load:
+            if st.button("📂 Cargar Simulación", use_container_width=True):
+                if params_preview:
+                    st.session_state.sim_num_drones = params_preview["num_drones"]
+                    st.session_state.sim_precio = params_preview["precio_estacion"]
+                    st.session_state.sim_dcto = params_preview["dcto_volumen"] * 100
+                    st.session_state.sim_sw = params_preview["sw_base"]
+                    st.session_state.sim_sora = params_preview["sora_base"]
+                    st.success(f"Simulación '{nombre_sel}' cargada. Revisa los parámetros en el sidebar.")
+                    st.rerun()
+        with col_del:
+            if st.button("🗑️ Eliminar Simulación", use_container_width=True):
+                eliminar_simulacion(nombre_sel)
+                st.success(f"Simulación '{nombre_sel}' eliminada")
+                st.rerun()
+    else:
+        st.info("No hay simulaciones guardadas todavía")
