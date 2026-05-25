@@ -211,19 +211,17 @@ tab1, tab2 = st.tabs(["📄 Propuesta Formal RFP & Gantt", "📊 Simulador Finan
 # =========================================================================
 # PESTAÑA 1: PROPUESTA FORMAL ADAPTADA A LA ESTRUCTURA RFP REQUESTED
 # =========================================================================
+def _on_edit_toggle():
+    if not st.session_state.edit_checkbox:
+        guardar_propuesta()
+
 with tab1:
     st.title("💼 Memoria Técnica y Administrativa: Respuesta a la RFP")
     st.markdown("**Destinatario:** Govern de les Illes Balears - Conselleria d'Agricultura, Pesca i Medi Natural")
     st.write("Servicio Llave en Mano (DaaS) de Inspección y Alertas de Fondeo Ilegal mediante Inteligencia Artificial")
-    
-    edit_mode = st.checkbox("✏️ Editar contenido de la propuesta", key="edit_checkbox")
-    st.session_state.edit_mode = edit_mode
 
-    if "_prev_edit" not in st.session_state:
-        st.session_state._prev_edit = edit_mode
-    if st.session_state._prev_edit and not edit_mode:
-        guardar_propuesta()
-    st.session_state._prev_edit = edit_mode
+    edit_mode = st.checkbox("✏️ Editar contenido de la propuesta", key="edit_checkbox", on_change=_on_edit_toggle)
+    st.session_state.edit_mode = edit_mode
 
     st.divider()
     
