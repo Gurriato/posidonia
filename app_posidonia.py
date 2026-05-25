@@ -381,6 +381,17 @@ with tab2:
     if "_mensaje" in st.session_state:
         st.success(st.session_state.pop("_mensaje"))
 
+    # --- DEBUG ---
+    _debug = st.sidebar.checkbox("🔧 Debug BD", value=False)
+    if _debug:
+        st.sidebar.write(f"**Supabase:** {'✅ Conectado' if SUPABASE_DISPONIBLE else '❌ No disponible (usando SQLite)'}")
+        if SUPABASE_DISPONIBLE:
+            try:
+                _test = _supabase.table("simulaciones").select("count", count="exact").execute()
+                st.sidebar.write(f"**Simulaciones en BD:** {_test.count}")
+            except Exception as _e:
+                st.sidebar.error(f"Error consultando Supabase: {_e}")
+
     # --- 1. ENTRADA DE VARIABLES (Side-bar) ---
     st.sidebar.header("⚙️ Variables del Simulador")
     num_drones = st.sidebar.number_input("Número de Nodos (Dron + Cámara)", min_value=1, max_value=100, value=2, step=1, key="sim_num_drones")
@@ -406,10 +417,11 @@ with tab2:
     col_tab1, col_tab2 = st.columns(2)
     with col_tab1:
         st.subheader("🛠️ Inversión Inicial (CAPEX)")
-        df_capex_raw = pd.DataFrame({
+        _df_capex_base = {
             "Concepto de Inversión": ["Hardware Drones + Docks", "Hardware Cámaras de Costa", "Desarrollo de Software IA", "Regulación AESA", "Despliegue y Logística"],
             "Coste (€)": [init_hw_dron, init_hw_camara, init_sw, init_aesa, init_logistica]
-        })
+        }
+        df_capex_raw = st.session_state.pop("_capex_cargado", pd.DataFrame(_df_capex_base))
         edited_capex_df = st.data_editor(df_capex_raw, num_rows="dynamic", column_config={
             "Concepto de Inversión": st.column_config.TextColumn("Concepto de Inversión"),
             "Coste (€)": st.column_config.NumberColumn(format="%d €")
@@ -418,10 +430,11 @@ with tab2:
 
     with col_tab2:
         st.subheader("🔄 Costes Operativos (OPEX)")
-        df_opex_raw = pd.DataFrame({
+        _df_opex_base = {
             "Concepto Operativo": ["Cloud + Conectividad", "Licencias DJI", "Seguros RC", "Mantenimiento Preventivo", "Soporte Software"],
             "Coste Anual (€)": [init_cloud, init_flighthub, init_seguro, init_mantenimiento, init_soporte]
-        })
+        }
+        df_opex_raw = st.session_state.pop("_opex_cargado", pd.DataFrame(_df_opex_base))
         edited_opex_df = st.data_editor(df_opex_raw, num_rows="dynamic", column_config={
             "Concepto Operativo": st.column_config.TextColumn("Concepto Operativo"),
             "Coste Anual (€)": st.column_config.NumberColumn(format="%d €")
@@ -429,11 +442,12 @@ with tab2:
         total_opex_anual = edited_opex_df["Coste Anual (€)"].sum()
 
     st.subheader("💰 Subvenciones y Financiación Externa")
-    df_subv_raw = pd.DataFrame({
+    _df_subv_base = {
         "Línea de Financiación": ["CDTI NEOTEC", "Women TechEU", "FOGAIBA", "ENISA Emprendedoras"],
         "Tipo": ["Fondo Perdido", "Fondo Perdido", "Fondo Perdido", "Préstamo"],
         "Importe (€)": [80000, 75000, 20000, 30000]
-    })
+    }
+    df_subv_raw = st.session_state.pop("_subv_cargado", pd.DataFrame(_df_subv_base))
     edited_subv_df = st.data_editor(df_subv_raw, num_rows="dynamic", column_config={"Tipo": st.column_config.SelectboxColumn("Tipo", options=["Fondo Perdido", "Préstamo"]), "Importe (€)": st.column_config.NumberColumn(format="%d €")}, key="subv_editor")
     
     total_ayudas = edited_subv_df["Importe (€)"].sum()
@@ -546,7 +560,7 @@ with tab2:
         with col_load:
             if st.button("📂 Cargar Simulación", use_container_width=True):
                 if params_preview:
-                    _params = {
+                    st.session_state._cargar_params = {
                         "sim_num_drones": params_preview["num_drones"],
                         "sim_precio": params_preview["precio_estacion"],
                         "sim_dcto": params_preview["dcto_volumen"] * 100,
@@ -554,12 +568,11 @@ with tab2:
                         "sim_sora": params_preview["sora_base"],
                     }
                     if "capex_df" in res_preview:
-                        _params["capex_editor"] = pd.DataFrame(res_preview["capex_df"])
+                        st.session_state._capex_cargado = pd.DataFrame(res_preview["capex_df"])
                     if "opex_df" in res_preview:
-                        _params["opex_editor"] = pd.DataFrame(res_preview["opex_df"])
+                        st.session_state._opex_cargado = pd.DataFrame(res_preview["opex_df"])
                     if "subv_df" in res_preview:
-                        _params["subv_editor"] = pd.DataFrame(res_preview["subv_df"])
-                    st.session_state._cargar_params = _params
+                        st.session_state._subv_cargado = pd.DataFrame(res_preview["subv_df"])
                     st.session_state._mensaje = f"Simulación '{nombre_sel}' cargada"
                     st.rerun()
         with col_del:
