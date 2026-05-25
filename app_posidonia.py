@@ -223,7 +223,8 @@ with tab1:
         if guardar_propuesta():
             st.success("Propuesta guardada correctamente")
         else:
-            st.error("Error al guardar la propuesta")
+            if SUPABASE_DISPONIBLE:
+                st.error("Error al guardar en Supabase. Revisa que RLS esté deshabilitado en la tabla 'propuesta'.")
 
     st.divider()
     
@@ -510,7 +511,10 @@ with tab2:
                 if guardar_simulacion(sim_nombre.strip(), parametros, resultados):
                     st.success(f"Simulación '{sim_nombre}' guardada")
                 else:
-                    st.error(f"Ya existe una simulación llamada '{sim_nombre}'. Usa otro nombre.")
+                    if SUPABASE_DISPONIBLE:
+                        st.error("Error al guardar en Supabase. Revisa que RLS esté deshabilitado en la tabla 'simulaciones'.")
+                    else:
+                        st.error(f"Ya existe una simulación llamada '{sim_nombre}' en la BD local.")
             else:
                 st.warning("Introduce un nombre para la simulación")
 
