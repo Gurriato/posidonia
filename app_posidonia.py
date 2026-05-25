@@ -289,7 +289,10 @@ with tab2:
             "Concepto de Inversión": ["Hardware Drones + Docks", "Hardware Cámaras de Costa", "Desarrollo de Software IA", "Regulación AESA", "Despliegue y Logística"],
             "Coste (€)": [init_hw_dron, init_hw_camara, init_sw, init_aesa, init_logistica]
         })
-        edited_capex_df = st.data_editor(df_capex_raw, num_rows="fixed", column_config={"Coste (€)": st.column_config.NumberColumn(format="%d €")}, key="capex_editor")
+        edited_capex_df = st.data_editor(df_capex_raw, num_rows="dynamic", column_config={
+            "Concepto de Inversión": st.column_config.TextColumn("Concepto de Inversión"),
+            "Coste (€)": st.column_config.NumberColumn(format="%d €")
+        }, key="capex_editor")
         total_capex = edited_capex_df["Coste (€)"].sum()
 
     with col_tab2:
@@ -298,7 +301,10 @@ with tab2:
             "Concepto Operativo": ["Cloud + Conectividad", "Licencias DJI", "Seguros RC", "Mantenimiento Preventivo", "Soporte Software"],
             "Coste Anual (€)": [init_cloud, init_flighthub, init_seguro, init_mantenimiento, init_soporte]
         })
-        edited_opex_df = st.data_editor(df_opex_raw, num_rows="fixed", column_config={"Coste Anual (€)": st.column_config.NumberColumn(format="%d €")}, key="opex_editor")
+        edited_opex_df = st.data_editor(df_opex_raw, num_rows="dynamic", column_config={
+            "Concepto Operativo": st.column_config.TextColumn("Concepto Operativo"),
+            "Coste Anual (€)": st.column_config.NumberColumn(format="%d €")
+        }, key="opex_editor")
         total_opex_anual = edited_opex_df["Coste Anual (€)"].sum()
 
     st.subheader("💰 Subvenciones y Financiación Externa")
@@ -380,7 +386,10 @@ with tab2:
                     "total_ayudas": int(total_ayudas),
                     "total_fondo_perdido": int(total_fondo_perdido),
                     "exposicion": int(exposicion),
-                    "flujo_acum_5anos": [int(f) for f in lista_flujo_acum]
+                    "flujo_acum_5anos": [int(f) for f in lista_flujo_acum],
+                    "capex_df": edited_capex_df.to_dict('records'),
+                    "opex_df": edited_opex_df.to_dict('records'),
+                    "subv_df": edited_subv_df.to_dict('records')
                 }
                 if guardar_simulacion(sim_nombre.strip(), parametros, resultados):
                     st.success(f"Simulación '{sim_nombre}' guardada")
@@ -415,6 +424,12 @@ with tab2:
                     st.session_state.sim_dcto = params_preview["dcto_volumen"] * 100
                     st.session_state.sim_sw = params_preview["sw_base"]
                     st.session_state.sim_sora = params_preview["sora_base"]
+                    if "capex_df" in res_preview:
+                        st.session_state.capex_editor = pd.DataFrame(res_preview["capex_df"])
+                    if "opex_df" in res_preview:
+                        st.session_state.opex_editor = pd.DataFrame(res_preview["opex_df"])
+                    if "subv_df" in res_preview:
+                        st.session_state.subv_editor = pd.DataFrame(res_preview["subv_df"])
                     st.success(f"Simulación '{nombre_sel}' cargada. Revisa los parámetros en el sidebar.")
                     st.rerun()
         with col_del:
