@@ -546,7 +546,7 @@ with tab2:
         with col_load:
             if st.button("📂 Cargar Simulación", use_container_width=True):
                 if params_preview:
-                    st.session_state._cargar_params = {
+                    _params = {
                         "sim_num_drones": params_preview["num_drones"],
                         "sim_precio": params_preview["precio_estacion"],
                         "sim_dcto": params_preview["dcto_volumen"] * 100,
@@ -554,11 +554,12 @@ with tab2:
                         "sim_sora": params_preview["sora_base"],
                     }
                     if "capex_df" in res_preview:
-                        st.session_state.capex_editor = pd.DataFrame(res_preview["capex_df"])
+                        _params["capex_editor"] = pd.DataFrame(res_preview["capex_df"])
                     if "opex_df" in res_preview:
-                        st.session_state.opex_editor = pd.DataFrame(res_preview["opex_df"])
+                        _params["opex_editor"] = pd.DataFrame(res_preview["opex_df"])
                     if "subv_df" in res_preview:
-                        st.session_state.subv_editor = pd.DataFrame(res_preview["subv_df"])
+                        _params["subv_editor"] = pd.DataFrame(res_preview["subv_df"])
+                    st.session_state._cargar_params = _params
                     st.session_state._mensaje = f"Simulación '{nombre_sel}' cargada"
                     st.rerun()
         with col_del:
