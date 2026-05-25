@@ -33,6 +33,9 @@ if not SUPABASE_DISPONIBLE:
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   sec1_resumen TEXT,
                   sec2_empresa TEXT,
+                  sec3_objetivos TEXT,
+                  sec3_limitaciones TEXT,
+                  sec3_arquitectura TEXT,
                   sec6_criterios TEXT,
                   sec7_contacto TEXT,
                   updated_at TEXT)''')
@@ -112,6 +115,9 @@ def guardar_propuesta():
     data = {
         "sec1_resumen": st.session_state.sec1_resumen,
         "sec2_empresa": st.session_state.sec2_empresa,
+        "sec3_objetivos": st.session_state.get("sec3_objetivos", ""),
+        "sec3_limitaciones": st.session_state.get("sec3_limitaciones", ""),
+        "sec3_arquitectura": st.session_state.get("sec3_arquitectura", ""),
         "sec6_criterios": st.session_state.sec6_criterios,
         "sec7_contacto": st.session_state.sec7_contacto,
         "updated_at": datetime.now().isoformat()
@@ -128,8 +134,8 @@ def guardar_propuesta():
         conn = sqlite3.connect('posidonia.db')
         c = conn.cursor()
         try:
-            c.execute("INSERT INTO propuesta (sec1_resumen, sec2_empresa, sec6_criterios, sec7_contacto, updated_at) VALUES (?, ?, ?, ?, ?)",
-                      (data["sec1_resumen"], data["sec2_empresa"], data["sec6_criterios"], data["sec7_contacto"], data["updated_at"]))
+            c.execute("INSERT INTO propuesta (sec1_resumen, sec2_empresa, sec3_objetivos, sec3_limitaciones, sec3_arquitectura, sec6_criterios, sec7_contacto, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                      (data["sec1_resumen"], data["sec2_empresa"], data["sec3_objetivos"], data["sec3_limitaciones"], data["sec3_arquitectura"], data["sec6_criterios"], data["sec7_contacto"], data["updated_at"]))
             conn.commit()
             return True
         except Exception as e:
@@ -151,11 +157,11 @@ def cargar_propuesta():
             import sqlite3
             conn = sqlite3.connect('posidonia.db')
             c = conn.cursor()
-            c.execute("SELECT sec1_resumen, sec2_empresa, sec6_criterios, sec7_contacto FROM propuesta ORDER BY id DESC LIMIT 1")
+            c.execute("SELECT sec1_resumen, sec2_empresa, sec3_objetivos, sec3_limitaciones, sec3_arquitectura, sec6_criterios, sec7_contacto FROM propuesta ORDER BY id DESC LIMIT 1")
             row = c.fetchone()
             conn.close()
             if row:
-                return {"sec1_resumen": row[0], "sec2_empresa": row[1], "sec6_criterios": row[2], "sec7_contacto": row[3]}
+                return {"sec1_resumen": row[0], "sec2_empresa": row[1], "sec3_objetivos": row[2], "sec3_limitaciones": row[3], "sec3_arquitectura": row[4], "sec6_criterios": row[5], "sec7_contacto": row[6]}
         except Exception:
             pass
     return None
@@ -197,11 +203,37 @@ if "sec7_contacto" not in st.session_state:
 * **Acuerdo de Confidencialidad (NDA):** Toda la información relativa al código de homografía, pesos de la red neural e información cartográfica propietaria está sujeta a secreto industrial estricto.
 * **Cláusula de Salvaguarda Legal:** La entrega de este documento se realiza en concepto de propuesta técnica para licitación y no constituye obligación contractual de prestación de servicios hasta la firma definitiva del pliego y formalización de la adjudicación por el órgano competente."""
 
+if "sec3_objetivos" not in st.session_state:
+    st.session_state.sec3_objetivos = """* **Despliegue del 'Filtro 0' (Vigilancia Pasiva):** Instalación de cámaras ópticas PTZ industriales en zonas urbanas no protegidas con visibilidad directa sobre las zonas de fondeo.
+* **Módulos de Software Core:** Licenciamiento de la plataforma cloud de procesamiento de imágenes con algoritmos de OCR (lectura de matrículas) e intersección de mapas de calor GIS de posidonia de la CAIB.
+* **Infraestructura de Interceptación:** Despliegue de estaciones automatizadas **DJI Dock 2** con aeronaves **Matrice 3D** equipadas con filtros polarizadores circulares (CPL) para anular el reflejo solar y capturar imágenes cenitales del fondo marino en la ventana crítica de 11:00 a 16:00."""
+
+if "sec3_limitaciones" not in st.session_state:
+    st.session_state.sec3_limitaciones = """* La S.L. aporta la evidencia digital y la georreferenciación inversa del barco; la emisión física de la sanción económica es competencia exclusiva de la administración pública.
+* Queda excluida de la fase de pruebas la operación en condiciones meteorológicas extremas que superen los límites estructurales del hardware (vientos superiores a 12 m/s)."""
+
+if "sec3_arquitectura" not in st.session_state:
+    st.session_state.sec3_arquitectura = """```text
+┌────────────────────────┐      ┌─────────────────────────┐      ┌─────────────────────────┐
+│  CÁMARA COSTA (PTZ)    │ ───> │ IA: VISIÓN COMPUTACIONAL│ ───> │   HOMOGRAFÍA ÓPTICA     │
+│  Vigilancia Pasiva 24/7│      │ Detección de Embarcación│      │ Cálculo Coordenada GPS  │
+└────────────────────────┘      └─────────────────────────┘      └─────────────────────────┘
+                                                                              │
+┌────────────────────────┐      ┌─────────────────────────┐      ┌────────────▼────────────┐
+│ GENERACIÓN DE EVIDENCIA│      │    DJI DOCK 2 & DRON    │      │    CRUCE GEOSPESCIAL    │
+│ Foto Cenital Ancla+CPL │ <─── │ Despegue Automático API │ <─── │ Point-in-Polygon (GIS)  │
+│  Zoom de Matrícula 56x │      │  Misión en Línea Recta  │      │  Match sobre Posidonia  │
+└────────────────────────┘      └─────────────────────────┘      └─────────────────────────┘
+```"""
+
 # Cargar propuesta guardada si existe
 _propuesta_guardada = cargar_propuesta()
 if _propuesta_guardada:
     st.session_state.sec1_resumen = _propuesta_guardada["sec1_resumen"]
     st.session_state.sec2_empresa = _propuesta_guardada["sec2_empresa"]
+    st.session_state.sec3_objetivos = _propuesta_guardada.get("sec3_objetivos", st.session_state.sec3_objetivos)
+    st.session_state.sec3_limitaciones = _propuesta_guardada.get("sec3_limitaciones", st.session_state.sec3_limitaciones)
+    st.session_state.sec3_arquitectura = _propuesta_guardada.get("sec3_arquitectura", st.session_state.sec3_arquitectura)
     st.session_state.sec6_criterios = _propuesta_guardada["sec6_criterios"]
     st.session_state.sec7_contacto = _propuesta_guardada["sec7_contacto"]
 
@@ -228,12 +260,10 @@ with tab1:
     # 1. RESUMEN EJECUTIVO
     st.header("1. Resumen Ejecutivo (Executive Summary)")
     if st.session_state.edit_mode:
-        col1, col2 = st.columns([6, 1])
-        with col1:
-            st.session_state.sec1_resumen = st.text_area("Editar Resumen Ejecutivo", value=st.session_state.sec1_resumen, height=200)
-        with col2:
-            st.write("")
-            if st.button("💾", key="save_sec1", help="Guardar esta sección", use_container_width=True):
+        st.session_state.sec1_resumen = st.text_area("Editar Resumen Ejecutivo", value=st.session_state.sec1_resumen, height=200)
+        _, col_btn = st.columns([5, 1])
+        with col_btn:
+            if st.button("💾", key="save_sec1", help="Guardar", use_container_width=True):
                 guardar_propuesta()
     else:
         st.markdown(st.session_state.sec1_resumen)
@@ -241,12 +271,10 @@ with tab1:
     # 2. INFORMACIÓN Y CONTEXTO DE LA EMPRESA
     st.header("2. Información y Contexto de la Empresa")
     if st.session_state.edit_mode:
-        col1, col2 = st.columns([6, 1])
-        with col1:
-            st.session_state.sec2_empresa = st.text_area("Editar Información de la Empresa", value=st.session_state.sec2_empresa, height=250)
-        with col2:
-            st.write("")
-            if st.button("💾", key="save_sec2", help="Guardar esta sección", use_container_width=True):
+        st.session_state.sec2_empresa = st.text_area("Editar Información de la Empresa", value=st.session_state.sec2_empresa, height=250)
+        _, col_btn = st.columns([5, 1])
+        with col_btn:
+            if st.button("💾", key="save_sec2", help="Guardar", use_container_width=True):
                 guardar_propuesta()
     else:
         st.markdown(st.session_state.sec2_empresa)
@@ -255,37 +283,36 @@ with tab1:
 
     # 3. ALCANCE DEL PROYECTO Y REQUISITOS TÉCNICOS
     st.header("3. Alcance del Proyecto y Requisitos Técnico (Scope of Work)")
-    
-    col_scope1, col_scope2 = st.columns(2)
-    with col_scope1:
-        st.markdown("**Objetivos Específicos & Entregables:**")
-        st.markdown("""
-        * **Despliegue del 'Filtro 0' (Vigilancia Pasiva):** Instalación de cámaras ópticas PTZ industriales en zonas urbanas no protegidas con visibilidad directa sobre las zonas de fondeo.
-        * **Módulos de Software Core:** Licenciamiento de la plataforma cloud de procesamiento de imágenes con algoritmos de OCR (lectura de matrículas) e intersección de mapas de calor GIS de posidonia de la CAIB.
-        * **Infraestructura de Interceptación:** Despliegue de estaciones automatizadas **DJI Dock 2** con aeronaves **Matrice 3D** equipadas con filtros polarizadores circulares (CPL) para anular el reflejo solar y capturar imágenes cenitales del fondo marino en la ventana crítica de 11:00 a 16:00.
-        """)
-    with col_scope2:
-        st.markdown("**Limitaciones (Fuera de Alcance):**")
-        st.markdown("""
-        * La S.L. aporta la evidencia digital y la georreferenciación inversa del barco; la emisión física de la sanción económica es competencia exclusiva de la administración pública.
-        * Queda excluida de la fase de pruebas la operación en condiciones meteorológicas extremas que superen los límites estructurales del hardware (vientos superiores a 12 m/s).
-        """)
+
+    if st.session_state.edit_mode:
+        st.session_state.sec3_objetivos = st.text_area("**Objetivos Específicos & Entregables:**", value=st.session_state.sec3_objetivos, height=150)
+        _, col_btn = st.columns([5, 1])
+        with col_btn:
+            if st.button("💾", key="save_sec3a", help="Guardar", use_container_width=True):
+                guardar_propuesta()
+        st.session_state.sec3_limitaciones = st.text_area("**Limitaciones (Fuera de Alcance):**", value=st.session_state.sec3_limitaciones, height=100)
+        _, col_btn = st.columns([5, 1])
+        with col_btn:
+            if st.button("💾", key="save_sec3b", help="Guardar", use_container_width=True):
+                guardar_propuesta()
+    else:
+        col_scope1, col_scope2 = st.columns(2)
+        with col_scope1:
+            st.markdown("**Objetivos Específicos & Entregables:**")
+            st.markdown(st.session_state.sec3_objetivos)
+        with col_scope2:
+            st.markdown("**Limitaciones (Fuera de Alcance):**")
+            st.markdown(st.session_state.sec3_limitaciones)
 
     st.subheader("🖥️ Arquitectura Lógica de la Solución")
-    st.markdown("""
-    ```text
-    ┌────────────────────────┐      ┌─────────────────────────┐      ┌─────────────────────────┐
-    │  CÁMARA COSTA (PTZ)    │ ───> │ IA: VISIÓN COMPUTACIONAL│ ───> │   HOMOGRAFÍA ÓPTICA     │
-    │  Vigilancia Pasiva 24/7│      │ Detección de Embarcación│      │ Cálculo Coordenada GPS  │
-    └────────────────────────┘      └─────────────────────────┘      └─────────────────────────┘
-                                                                                  │
-    ┌────────────────────────┐      ┌─────────────────────────┐      ┌────────────▼────────────┐
-    │ GENERACIÓN DE EVIDENCIA│      │    DJI DOCK 2 & DRON    │      │    CRUCE GEOSPESCIAL    │
-    │ Foto Cenital Ancla+CPL │ <─── │ Despegue Automático API │ <─── │ Point-in-Polygon (GIS)  │
-    │  Zoom de Matrícula 56x │      │  Misión en Línea Recta  │      │  Match sobre Posidonia  │
-    └────────────────────────┘      └─────────────────────────┘      └─────────────────────────┘
-    ```
-    """)
+    if st.session_state.edit_mode:
+        st.session_state.sec3_arquitectura = st.text_area("Editar Arquitectura", value=st.session_state.sec3_arquitectura, height=200)
+        _, col_btn = st.columns([5, 1])
+        with col_btn:
+            if st.button("💾", key="save_sec3c", help="Guardar", use_container_width=True):
+                guardar_propuesta()
+    else:
+        st.markdown(st.session_state.sec3_arquitectura)
 
     st.divider()
 
