@@ -36,6 +36,7 @@ if not SUPABASE_DISPONIBLE:
                   sec3_objetivos TEXT,
                   sec3_limitaciones TEXT,
                   sec3_arquitectura TEXT,
+                  sec4_cronograma TEXT,
                   sec6_criterios TEXT,
                   sec7_contacto TEXT,
                   updated_at TEXT)''')
@@ -118,6 +119,7 @@ def guardar_propuesta():
         "sec3_objetivos": st.session_state.get("sec3_objetivos", ""),
         "sec3_limitaciones": st.session_state.get("sec3_limitaciones", ""),
         "sec3_arquitectura": st.session_state.get("sec3_arquitectura", ""),
+        "sec4_cronograma": json.dumps(st.session_state.df_cronograma.to_dict(orient="records"), ensure_ascii=False) if "df_cronograma" in st.session_state else "",
         "sec6_criterios": st.session_state.sec6_criterios,
         "sec7_contacto": st.session_state.sec7_contacto,
         "updated_at": datetime.now().isoformat()
@@ -134,8 +136,8 @@ def guardar_propuesta():
         conn = sqlite3.connect('posidonia.db')
         c = conn.cursor()
         try:
-            c.execute("INSERT INTO propuesta (sec1_resumen, sec2_empresa, sec3_objetivos, sec3_limitaciones, sec3_arquitectura, sec6_criterios, sec7_contacto, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                      (data["sec1_resumen"], data["sec2_empresa"], data["sec3_objetivos"], data["sec3_limitaciones"], data["sec3_arquitectura"], data["sec6_criterios"], data["sec7_contacto"], data["updated_at"]))
+            c.execute("INSERT INTO propuesta (sec1_resumen, sec2_empresa, sec3_objetivos, sec3_limitaciones, sec3_arquitectura, sec4_cronograma, sec6_criterios, sec7_contacto, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                      (data["sec1_resumen"], data["sec2_empresa"], data["sec3_objetivos"], data["sec3_limitaciones"], data["sec3_arquitectura"], data["sec4_cronograma"], data["sec6_criterios"], data["sec7_contacto"], data["updated_at"]))
             conn.commit()
             return True
         except Exception as e:
@@ -157,11 +159,11 @@ def cargar_propuesta():
             import sqlite3
             conn = sqlite3.connect('posidonia.db')
             c = conn.cursor()
-            c.execute("SELECT sec1_resumen, sec2_empresa, sec3_objetivos, sec3_limitaciones, sec3_arquitectura, sec6_criterios, sec7_contacto FROM propuesta ORDER BY id DESC LIMIT 1")
+            c.execute("SELECT sec1_resumen, sec2_empresa, sec3_objetivos, sec3_limitaciones, sec3_arquitectura, sec4_cronograma, sec6_criterios, sec7_contacto FROM propuesta ORDER BY id DESC LIMIT 1")
             row = c.fetchone()
             conn.close()
             if row:
-                return {"sec1_resumen": row[0], "sec2_empresa": row[1], "sec3_objetivos": row[2], "sec3_limitaciones": row[3], "sec3_arquitectura": row[4], "sec6_criterios": row[5], "sec7_contacto": row[6]}
+                return {"sec1_resumen": row[0], "sec2_empresa": row[1], "sec3_objetivos": row[2], "sec3_limitaciones": row[3], "sec3_arquitectura": row[4], "sec4_cronograma": row[5], "sec6_criterios": row[6], "sec7_contacto": row[7]}
         except Exception:
             pass
     return None
@@ -226,6 +228,17 @@ if "sec3_arquitectura" not in st.session_state:
 └────────────────────────┘      └─────────────────────────┘      └─────────────────────────┘
 ```"""
 
+if "df_cronograma" not in st.session_state:
+    st.session_state.df_cronograma = pd.DataFrame([
+        {"Hito / Fase": "Lanzamiento de la RFP / Pliego", "Descripción": "Apertura oficial de la licitación por el Govern", "Fecha Estimada": "2026-06-01", "Duración (Días)": 1},
+        {"Hito / Fase": "Fecha límite para preguntas técnicas", "Descripción": "Periodo para resolver dudas de conectividad y GIS", "Fecha Estimada": "2026-06-15", "Duración (Días)": 1},
+        {"Hito / Fase": "Publicación de respuestas a aclaraciones", "Descripción": "Aclaraciones publicadas en el perfil del contratante", "Fecha Estimada": "2026-06-22", "Duración (Días)": 1},
+        {"Hito / Fase": "Entrega improrrogable de propuestas", "Descripción": "Cierre de recepción de ofertas técnicas y económicas", "Fecha Estimada": "2026-07-15", "Duración (Días)": 1},
+        {"Hito / Fase": "Fase de evaluación y demos de IA", "Descripción": "Validación en entorno de pruebas del algoritmo de homografía", "Fecha Estimada": "2026-08-01", "Duración (Días)": 30},
+        {"Hito / Fase": "Adjudicación definitiva del contrato", "Descripción": "Firma del contrato de servicios DaaS para la campaña", "Fecha Estimada": "2026-09-01", "Duración (Días)": 1},
+    ])
+    st.session_state.df_cronograma["Fecha Estimada"] = pd.to_datetime(st.session_state.df_cronograma["Fecha Estimada"])
+
 # Cargar propuesta guardada si existe
 _propuesta_guardada = cargar_propuesta()
 if _propuesta_guardada:
@@ -234,6 +247,15 @@ if _propuesta_guardada:
     st.session_state.sec3_objetivos = _propuesta_guardada.get("sec3_objetivos", st.session_state.sec3_objetivos)
     st.session_state.sec3_limitaciones = _propuesta_guardada.get("sec3_limitaciones", st.session_state.sec3_limitaciones)
     st.session_state.sec3_arquitectura = _propuesta_guardada.get("sec3_arquitectura", st.session_state.sec3_arquitectura)
+    _crono_json = _propuesta_guardada.get("sec4_cronograma")
+    if _crono_json:
+        try:
+            _crono_lista = json.loads(_crono_json)
+            _df = pd.DataFrame(_crono_lista)
+            _df["Fecha Estimada"] = pd.to_datetime(_df["Fecha Estimada"])
+            st.session_state.df_cronograma = _df
+        except Exception:
+            pass
     st.session_state.sec6_criterios = _propuesta_guardada["sec6_criterios"]
     st.session_state.sec7_contacto = _propuesta_guardada["sec7_contacto"]
 
@@ -319,13 +341,50 @@ with tab1:
     # 4. CRONOGRAMA DEL PROCESO DE SELECCIÓN (PLIEGO PROPUESTO)
     st.header("4. Cronograma del Proceso de Selección")
     st.write("Fechas marco propuestas para la licitación estacional con vistas a la campaña de 2027:")
-    
-    cronograma_data = {
-        "Hito / Fase": ["Lanzamiento de la RFP / Pliego", "Fecha límite para preguntas técnicas", "Publicación de respuestas a aclaraciones", "Entrega improrrogable de propuestas", "Fase de evaluación y demos de IA", "Adjudicación definitiva del contrato"],
-        "Descripción": ["Apertura oficial de la licitación por el Govern", "Periodo para resolver dudas de conectividad y GIS", "Aclaraciones publicadas en el perfil del contratante", "Cierre de recepción de ofertas técnicas y económicas", "Validación en entorno de pruebas del algoritmo de homografía", "Firma del contrato de servicios DaaS para la campaña"],
-        "Fecha Estimada": ["2026-06-01", "2026-06-15", "2026-06-22", "2026-07-15", "2026-08-01", "2026-09-01"]
-    }
-    st.table(pd.DataFrame(cronograma_data))
+
+    if st.session_state.edit_mode:
+        st.session_state.df_cronograma = st.data_editor(
+            st.session_state.df_cronograma,
+            num_rows="dynamic",
+            column_config={
+                "Fecha Estimada": st.column_config.DateColumn("Fecha Estimada", format="YYYY-MM-DD"),
+                "Duración (Días)": st.column_config.NumberColumn("Duración (Días)", min_value=0, format="%d días")
+            },
+            key="cronograma_editor",
+            height=300
+        )
+        _, col_btn = st.columns([5, 1])
+        with col_btn:
+            if st.button("💾", key="save_sec4", help="Guardar", use_container_width=True):
+                guardar_propuesta()
+    else:
+        st.table(st.session_state.df_cronograma)
+
+    try:
+        _df_gantt4 = st.session_state.df_cronograma.copy()
+        _df_gantt4["Start"] = pd.to_datetime(_df_gantt4["Fecha Estimada"])
+        _df_gantt4["Finish"] = _df_gantt4.apply(
+            lambda r: r["Start"] + timedelta(days=max(int(r["Duración (Días)"]), 1)), axis=1
+        )
+        fig_gantt4 = px.timeline(
+            _df_gantt4,
+            x_start="Start",
+            x_end="Finish",
+            y="Hito / Fase",
+            color="Descripción",
+            title="📅 Cronograma del Proceso de Selección",
+            color_discrete_sequence=px.colors.qualitative.Set2
+        )
+        fig_gantt4.update_yaxes(autorange="reversed")
+        fig_gantt4.update_layout(
+            showlegend=False,
+            template="plotly_white",
+            margin=dict(l=20, r=20, t=40, b=20),
+            height=400
+        )
+        st.plotly_chart(fig_gantt4, use_container_width=True)
+    except Exception as e:
+        st.error(f"Error al generar Gantt: {e}")
 
     st.divider()
 
