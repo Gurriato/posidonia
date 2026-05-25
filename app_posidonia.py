@@ -228,14 +228,26 @@ with tab1:
     # 1. RESUMEN EJECUTIVO
     st.header("1. Resumen Ejecutivo (Executive Summary)")
     if st.session_state.edit_mode:
-        st.session_state.sec1_resumen = st.text_area("Editar Resumen Ejecutivo", value=st.session_state.sec1_resumen, height=200)
+        col1, col2 = st.columns([6, 1])
+        with col1:
+            st.session_state.sec1_resumen = st.text_area("Editar Resumen Ejecutivo", value=st.session_state.sec1_resumen, height=200)
+        with col2:
+            st.write("")
+            if st.button("💾", key="save_sec1", help="Guardar esta sección", use_container_width=True):
+                guardar_propuesta()
     else:
         st.markdown(st.session_state.sec1_resumen)
     
     # 2. INFORMACIÓN Y CONTEXTO DE LA EMPRESA
     st.header("2. Información y Contexto de la Empresa")
     if st.session_state.edit_mode:
-        st.session_state.sec2_empresa = st.text_area("Editar Información de la Empresa", value=st.session_state.sec2_empresa, height=250)
+        col1, col2 = st.columns([6, 1])
+        with col1:
+            st.session_state.sec2_empresa = st.text_area("Editar Información de la Empresa", value=st.session_state.sec2_empresa, height=250)
+        with col2:
+            st.write("")
+            if st.button("💾", key="save_sec2", help="Guardar esta sección", use_container_width=True):
+                guardar_propuesta()
     else:
         st.markdown(st.session_state.sec2_empresa)
     
@@ -354,7 +366,13 @@ with tab1:
     # 6. CRITERIOS DE EVALUACIÓN
     st.header("6. Criterios de Baremación y Evaluación")
     if st.session_state.edit_mode:
-        st.session_state.sec6_criterios = st.text_area("Editar Criterios de Evaluación", value=st.session_state.sec6_criterios, height=200)
+        col1, col2 = st.columns([6, 1])
+        with col1:
+            st.session_state.sec6_criterios = st.text_area("Editar Criterios de Evaluación", value=st.session_state.sec6_criterios, height=200)
+        with col2:
+            st.write("")
+            if st.button("💾", key="save_sec6", help="Guardar esta sección", use_container_width=True):
+                guardar_propuesta()
     else:
         st.markdown(st.session_state.sec6_criterios)
 
@@ -363,14 +381,15 @@ with tab1:
     # 7. PUNTOS DE CONTACTO Y ASPECTOS LEGALES
     st.header("7. Puntos de Contacto y Aspectos Legal")
     if st.session_state.edit_mode:
-        st.session_state.sec7_contacto = st.text_area("Editar Contacto y Legal", value=st.session_state.sec7_contacto, height=200)
+        col1, col2 = st.columns([6, 1])
+        with col1:
+            st.session_state.sec7_contacto = st.text_area("Editar Contacto y Legal", value=st.session_state.sec7_contacto, height=200)
+        with col2:
+            st.write("")
+            if st.button("💾", key="save_sec7", help="Guardar esta sección", use_container_width=True):
+                guardar_propuesta()
     else:
         st.markdown(st.session_state.sec7_contacto)
-
-    if st.session_state.edit_mode:
-        if st.button("💾 Guardar cambios", use_container_width=True, type="primary"):
-            guardar_propuesta()
-            st.success("Propuesta guardada")
 
 # =========================================================================
 # PESTAÑA 2: SIMULADOR FINANCIERO (TOTALMENTE INTACTA EN LÓGICA / COREGIDO SYNTAX WIDTH)
