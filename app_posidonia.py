@@ -30,7 +30,7 @@ if not SUPABASE_DISPONIBLE:
                   parametros TEXT,
                   resultados TEXT)''')
     _sqlite_conn.execute('''CREATE TABLE IF NOT EXISTS propuesta
-                 (id INTEGER PRIMARY KEY DEFAULT 1,
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   sec1_resumen TEXT,
                   sec2_empresa TEXT,
                   sec6_criterios TEXT,
@@ -110,7 +110,6 @@ def listar_simulaciones():
 
 def guardar_propuesta():
     data = {
-        "id": 1,
         "sec1_resumen": st.session_state.sec1_resumen,
         "sec2_empresa": st.session_state.sec2_empresa,
         "sec6_criterios": st.session_state.sec6_criterios,
@@ -119,7 +118,7 @@ def guardar_propuesta():
     }
     if SUPABASE_DISPONIBLE:
         try:
-            _supabase.table("propuesta").upsert(data, on_conflict="id").execute()
+            _supabase.table("propuesta").insert(data).execute()
             return True
         except Exception as e:
             st.error(f"Error de Supabase al guardar propuesta: {e}")
@@ -129,8 +128,8 @@ def guardar_propuesta():
         conn = sqlite3.connect('posidonia.db')
         c = conn.cursor()
         try:
-            c.execute("INSERT OR REPLACE INTO propuesta (id, sec1_resumen, sec2_empresa, sec6_criterios, sec7_contacto, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
-                      (1, data["sec1_resumen"], data["sec2_empresa"], data["sec6_criterios"], data["sec7_contacto"], data["updated_at"]))
+            c.execute("INSERT INTO propuesta (sec1_resumen, sec2_empresa, sec6_criterios, sec7_contacto, updated_at) VALUES (?, ?, ?, ?, ?)",
+                      (data["sec1_resumen"], data["sec2_empresa"], data["sec6_criterios"], data["sec7_contacto"], data["updated_at"]))
             conn.commit()
             return True
         except Exception as e:
@@ -142,7 +141,7 @@ def guardar_propuesta():
 def cargar_propuesta():
     if SUPABASE_DISPONIBLE:
         try:
-            res = _supabase.table("propuesta").select("*").eq("id", 1).execute()
+            res = _supabase.table("propuesta").select("*").order("id", desc=True).limit(1).execute()
             if res.data:
                 return res.data[0]
         except Exception:
@@ -152,7 +151,7 @@ def cargar_propuesta():
             import sqlite3
             conn = sqlite3.connect('posidonia.db')
             c = conn.cursor()
-            c.execute("SELECT sec1_resumen, sec2_empresa, sec6_criterios, sec7_contacto FROM propuesta WHERE id=1")
+            c.execute("SELECT sec1_resumen, sec2_empresa, sec6_criterios, sec7_contacto FROM propuesta ORDER BY id DESC LIMIT 1")
             row = c.fetchone()
             conn.close()
             if row:
@@ -217,14 +216,14 @@ with tab1:
     st.markdown("**Destinatario:** Govern de les Illes Balears - Conselleria d'Agricultura, Pesca i Medi Natural")
     st.write("Servicio Llave en Mano (DaaS) de Inspección y Alertas de Fondeo Ilegal mediante Inteligencia Artificial")
     
-    st.session_state.edit_mode = st.checkbox("✏️ Editar contenido de la propuesta")
+    edit_mode = st.checkbox("✏️ Editar contenido de la propuesta", key="edit_checkbox")
+    st.session_state.edit_mode = edit_mode
 
-    if st.button("💾 Guardar Propuesta", use_container_width=True, type="primary"):
-        if guardar_propuesta():
-            st.success("Propuesta guardada correctamente")
-        else:
-            if SUPABASE_DISPONIBLE:
-                st.error("Error al guardar en Supabase. Revisa que RLS esté deshabilitado en la tabla 'propuesta'.")
+    if "_prev_edit" not in st.session_state:
+        st.session_state._prev_edit = edit_mode
+    if st.session_state._prev_edit and not edit_mode:
+        guardar_propuesta()
+    st.session_state._prev_edit = edit_mode
 
     st.divider()
     
