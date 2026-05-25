@@ -16,7 +16,6 @@ try:
     from supabase import create_client
     if "supabase" in st.secrets:
         _supabase = create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
-        _supabase.table("simulaciones").select("id").limit(1).execute()
         SUPABASE_DISPONIBLE = True
 except Exception:
     pass
@@ -30,6 +29,13 @@ if not SUPABASE_DISPONIBLE:
                   fecha TEXT,
                   parametros TEXT,
                   resultados TEXT)''')
+    _sqlite_conn.execute('''CREATE TABLE IF NOT EXISTS propuesta
+                 (id INTEGER PRIMARY KEY DEFAULT 1,
+                  sec1_resumen TEXT,
+                  sec2_empresa TEXT,
+                  sec6_criterios TEXT,
+                  sec7_contacto TEXT,
+                  updated_at TEXT)''')
     _sqlite_conn.commit()
     _sqlite_conn.close()
 
@@ -44,7 +50,8 @@ def guardar_simulacion(nombre, parametros, resultados):
         try:
             _supabase.table("simulaciones").insert(data).execute()
             return True
-        except Exception:
+        except Exception as e:
+            st.error(f"Error de Supabase: {e}")
             return False
     else:
         import sqlite3
@@ -56,6 +63,7 @@ def guardar_simulacion(nombre, parametros, resultados):
             conn.commit()
             return True
         except sqlite3.IntegrityError:
+            st.warning(f"Ya existe una simulación llamada '{nombre}' en la BD local.")
             return False
         finally:
             conn.close()
@@ -100,6 +108,59 @@ def listar_simulaciones():
         conn.close()
         return rows
 
+def guardar_propuesta():
+    data = {
+        "id": 1,
+        "sec1_resumen": st.session_state.sec1_resumen,
+        "sec2_empresa": st.session_state.sec2_empresa,
+        "sec6_criterios": st.session_state.sec6_criterios,
+        "sec7_contacto": st.session_state.sec7_contacto,
+        "updated_at": datetime.now().isoformat()
+    }
+    if SUPABASE_DISPONIBLE:
+        try:
+            _supabase.table("propuesta").upsert(data, on_conflict="id").execute()
+            return True
+        except Exception as e:
+            st.error(f"Error de Supabase al guardar propuesta: {e}")
+            return False
+    else:
+        import sqlite3
+        conn = sqlite3.connect('posidonia.db')
+        c = conn.cursor()
+        try:
+            c.execute("INSERT OR REPLACE INTO propuesta (id, sec1_resumen, sec2_empresa, sec6_criterios, sec7_contacto, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+                      (1, data["sec1_resumen"], data["sec2_empresa"], data["sec6_criterios"], data["sec7_contacto"], data["updated_at"]))
+            conn.commit()
+            return True
+        except Exception as e:
+            st.error(f"Error al guardar propuesta: {e}")
+            return False
+        finally:
+            conn.close()
+
+def cargar_propuesta():
+    if SUPABASE_DISPONIBLE:
+        try:
+            res = _supabase.table("propuesta").select("*").eq("id", 1).execute()
+            if res.data:
+                return res.data[0]
+        except Exception:
+            pass
+    else:
+        try:
+            import sqlite3
+            conn = sqlite3.connect('posidonia.db')
+            c = conn.cursor()
+            c.execute("SELECT sec1_resumen, sec2_empresa, sec6_criterios, sec7_contacto FROM propuesta WHERE id=1")
+            row = c.fetchone()
+            conn.close()
+            if row:
+                return {"sec1_resumen": row[0], "sec2_empresa": row[1], "sec6_criterios": row[2], "sec7_contacto": row[3]}
+        except Exception:
+            pass
+    return None
+
 # --- FUNCIÓN DE FORMATEO EUROPEO ---
 def fmt(valor, dees=0):
     try:
@@ -137,6 +198,14 @@ if "sec7_contacto" not in st.session_state:
 * **Acuerdo de Confidencialidad (NDA):** Toda la información relativa al código de homografía, pesos de la red neural e información cartográfica propietaria está sujeta a secreto industrial estricto.
 * **Cláusula de Salvaguarda Legal:** La entrega de este documento se realiza en concepto de propuesta técnica para licitación y no constituye obligación contractual de prestación de servicios hasta la firma definitiva del pliego y formalización de la adjudicación por el órgano competente."""
 
+# Cargar propuesta guardada si existe
+_propuesta_guardada = cargar_propuesta()
+if _propuesta_guardada:
+    st.session_state.sec1_resumen = _propuesta_guardada["sec1_resumen"]
+    st.session_state.sec2_empresa = _propuesta_guardada["sec2_empresa"]
+    st.session_state.sec6_criterios = _propuesta_guardada["sec6_criterios"]
+    st.session_state.sec7_contacto = _propuesta_guardada["sec7_contacto"]
+
 # --- PANTALLA PRINCIPAL: SISTEMA DE PESTAÑAS ---
 tab1, tab2 = st.tabs(["📄 Propuesta Formal RFP & Gantt", "📊 Simulador Financiero & ROI"])
 
@@ -149,7 +218,13 @@ with tab1:
     st.write("Servicio Llave en Mano (DaaS) de Inspección y Alertas de Fondeo Ilegal mediante Inteligencia Artificial")
     
     st.session_state.edit_mode = st.checkbox("✏️ Editar contenido de la propuesta")
-    
+
+    if st.button("💾 Guardar Propuesta", use_container_width=True, type="primary"):
+        if guardar_propuesta():
+            st.success("Propuesta guardada correctamente")
+        else:
+            st.error("Error al guardar la propuesta")
+
     st.divider()
     
     # 1. RESUMEN EJECUTIVO
