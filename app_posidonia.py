@@ -367,6 +367,11 @@ with tab1:
     else:
         st.markdown(st.session_state.sec7_contacto)
 
+    if st.session_state.edit_mode:
+        if st.button("💾 Guardar cambios", use_container_width=True, type="primary"):
+            guardar_propuesta()
+            st.success("Propuesta guardada")
+
 # =========================================================================
 # PESTAÑA 2: SIMULADOR FINANCIERO (TOTALMENTE INTACTA EN LÓGICA / COREGIDO SYNTAX WIDTH)
 # =========================================================================
