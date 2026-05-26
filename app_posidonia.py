@@ -553,17 +553,24 @@ with tab2:
     
     col_tab1, col_tab2 = st.columns(2)
     with col_tab1:
-        st.subheader("🛠️ Inversión Inicial (CAPEX)")
-        _df_capex_base = {
+        st.subheader("🛠️ Inversión Inicial (CAPEX) por Año")
+        _anios_capex = ["Año 1", "Año 2", "Año 3", "Año 4", "Año 5"]
+        _df_capex_base = pd.DataFrame({
             "Concepto de Inversión": ["Hardware Drones + Docks", "Hardware Cámaras de Costa", "Desarrollo de Software IA", "Regulación AESA", "Despliegue y Logística"],
-            "Coste (€)": [init_hw_dron, init_hw_camara, init_sw, init_aesa, init_logistica]
-        }
-        df_capex_raw = st.session_state.pop("_capex_cargado", pd.DataFrame(_df_capex_base))
+        })
+        _df_capex_base["Año 1"] = [init_hw_dron, init_hw_camara, init_sw, init_aesa, init_logistica]
+        for _a in _anios_capex[1:]:
+            _df_capex_base[_a] = 0
+        df_capex_raw = st.session_state.pop("_capex_cargado", _df_capex_base)
         edited_capex_df = st.data_editor(df_capex_raw, num_rows="dynamic", column_config={
             "Concepto de Inversión": st.column_config.TextColumn("Concepto de Inversión"),
-            "Coste (€)": st.column_config.NumberColumn(format="%d €")
-        }, key="capex_editor")
-        total_capex = edited_capex_df["Coste (€)"].sum()
+            **{_a: st.column_config.NumberColumn(_a, format="%d €") for _a in _anios_capex}
+        }, key="capex_editor", height=300)
+        total_capex_por_ano = [int(edited_capex_df[_a].sum()) for _a in _anios_capex]
+        total_capex = sum(total_capex_por_ano)
+        _cols_capex = st.columns(len(_anios_capex))
+        for _j, _a in enumerate(_anios_capex):
+            _cols_capex[_j].metric(f"📊 CAPEX {_a}", f"{fmt(total_capex_por_ano[_j])} €")
 
     with col_tab2:
         st.subheader("🔄 Costes Operativos (OPEX) por Año")
@@ -611,7 +618,7 @@ with tab2:
     acumulado = 0
     for i in range(5):
         ing = ingresos_anuales + (total_ayudas if i == 0 else 0)
-        gas = (total_capex if i == 0 else 0) + total_opex_por_ano[i] + (800 * num_drones if i in [2, 4] else 0)
+        gas = total_capex_por_ano[i] + total_opex_por_ano[i] + (800 * num_drones if i in [2, 4] else 0)
         acumulado += (ing - gas)
         lista_flujo_acum.append(acumulado)
 
@@ -628,13 +635,12 @@ with tab2:
     with m_col4:
         st.metric("Total Ayudas Captadas", f"{fmt(total_ayudas)} €")
 
-    capex_por_ano = [total_capex if i == 0 else 0 for i in range(5)]
-    opex_por_ano = [total_opex_por_ano[i] + (800 * num_drones if i in [2, 4] else 0) for i in range(5)]
     subv_por_ano = [total_ayudas if i == 0 else 0 for i in range(5)]
+    opex_barras = [total_opex_por_ano[i] + (800 * num_drones if i in [2, 4] else 0) for i in range(5)]
 
     fig_combo = make_subplots(specs=[[{"secondary_y": True}]])
-    fig_combo.add_trace(go.Bar(x=anios, y=capex_por_ano, name="CAPEX", marker_color="#d62728"), secondary_y=False)
-    fig_combo.add_trace(go.Bar(x=anios, y=opex_por_ano, name="OPEX", marker_color="#ff7f0e"), secondary_y=False)
+    fig_combo.add_trace(go.Bar(x=anios, y=total_capex_por_ano, name="CAPEX", marker_color="#d62728"), secondary_y=False)
+    fig_combo.add_trace(go.Bar(x=anios, y=opex_barras, name="OPEX", marker_color="#ff7f0e"), secondary_y=False)
     fig_combo.add_trace(go.Bar(x=anios, y=subv_por_ano, name="Subvenciones", marker_color="#2ca02c"), secondary_y=False)
     fig_combo.add_trace(go.Scatter(x=anios, y=lista_flujo_acum, mode='lines+markers', name='Flujo Acumulado', line=dict(color='#1f77b4', width=4)), secondary_y=True)
     fig_combo.add_trace(go.Scatter(x=anios, y=[0]*5, mode='lines', name='Equilibrio', line=dict(color='red', dash='dash')), secondary_y=True)
@@ -711,7 +717,9 @@ with tab2:
             st.markdown(f"**Vista previa de '{nombre_sel}':**")
             pcol1, pcol2, pcol3, pcol4 = st.columns(4)
             pcol1.metric("Drones", params_preview["num_drones"])
-            pcol2.metric("CAPEX", f"{fmt(res_preview['total_capex'])} €")
+            _capex_preview = res_preview.get("capex_df", [])
+            _capex_y1 = sum(r.get("Año 1", r.get("Coste (€)", 0)) for r in _capex_preview) if _capex_preview else res_preview.get("total_capex", 0)
+            pcol2.metric("CAPEX Año 1", f"{fmt(_capex_y1)} €")
             _opex_preview = res_preview.get("opex_df", [])
             _opex_y1 = sum(r.get("Año 1", r.get("Coste Anual (€)", 0)) for r in _opex_preview) if _opex_preview else res_preview.get("total_opex_anual", 0)
             pcol3.metric("OPEX Año 1", f"{fmt(_opex_y1)} €")
@@ -729,7 +737,12 @@ with tab2:
                         "sim_sora": params_preview["sora_base"],
                     }
                     if "capex_df" in res_preview:
-                        st.session_state._capex_cargado = pd.DataFrame(res_preview["capex_df"])
+                        _capex_cargado = pd.DataFrame(res_preview["capex_df"])
+                        if "Coste (€)" in _capex_cargado.columns:
+                            _capex_cargado = _capex_cargado.rename(columns={"Coste (€)": "Año 1"})
+                            for _a in ["Año 2", "Año 3", "Año 4", "Año 5"]:
+                                _capex_cargado[_a] = 0
+                        st.session_state._capex_cargado = _capex_cargado
                     if "opex_df" in res_preview:
                         _opex_cargado = pd.DataFrame(res_preview["opex_df"])
                         if "Coste Anual (€)" in _opex_cargado.columns:
