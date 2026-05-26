@@ -570,17 +570,20 @@ with tab2:
         total_capex = edited_capex_df["Coste (€)"].sum()
 
     with col_tab2:
-        st.subheader("🔄 Costes Operativos (OPEX)")
-        _df_opex_base = {
+        st.subheader("🔄 Costes Operativos (OPEX) por Año")
+        _anios_opex = ["Año 1", "Año 2", "Año 3", "Año 4", "Año 5"]
+        _df_opex_base = pd.DataFrame({
             "Concepto Operativo": ["Cloud + Conectividad", "Licencias DJI", "Seguros RC", "Mantenimiento Preventivo", "Soporte Software"],
-            "Coste Anual (€)": [init_cloud, init_flighthub, init_seguro, init_mantenimiento, init_soporte]
-        }
-        df_opex_raw = st.session_state.pop("_opex_cargado", pd.DataFrame(_df_opex_base))
-        edited_opex_df = st.data_editor(df_opex_raw, num_rows="dynamic", column_config={
+        })
+        for _a in _anios_opex:
+            _df_opex_base[_a] = [init_cloud, init_flighthub, init_seguro, init_mantenimiento, init_soporte]
+        _df_opex_raw = st.session_state.pop("_opex_cargado", _df_opex_base)
+        edited_opex_df = st.data_editor(_df_opex_raw, num_rows="dynamic", column_config={
             "Concepto Operativo": st.column_config.TextColumn("Concepto Operativo"),
-            "Coste Anual (€)": st.column_config.NumberColumn(format="%d €")
-        }, key="opex_editor")
-        total_opex_anual = edited_opex_df["Coste Anual (€)"].sum()
+            **{_a: st.column_config.NumberColumn(_a, format="%d €") for _a in _anios_opex}
+        }, key="opex_editor", height=300)
+        total_opex_por_ano = [int(edited_opex_df[_a].sum()) for _a in _anios_opex]
+        total_opex_anual = total_opex_por_ano[0]
 
     st.subheader("💰 Subvenciones y Financiación Externa")
     _df_subv_base = {
@@ -601,7 +604,7 @@ with tab2:
     acumulado = 0
     for i in range(5):
         ing = ingresos_anuales + (total_ayudas if i == 0 else 0)
-        gas = (total_capex if i == 0 else 0) + total_opex_anual + (800 * num_drones if i in [2, 4] else 0)
+        gas = (total_capex if i == 0 else 0) + total_opex_por_ano[i] + (800 * num_drones if i in [2, 4] else 0)
         acumulado += (ing - gas)
         lista_flujo_acum.append(acumulado)
 
@@ -694,7 +697,9 @@ with tab2:
             pcol1, pcol2, pcol3, pcol4 = st.columns(4)
             pcol1.metric("Drones", params_preview["num_drones"])
             pcol2.metric("CAPEX", f"{fmt(res_preview['total_capex'])} €")
-            pcol3.metric("OPEX Anual", f"{fmt(res_preview['total_opex_anual'])} €")
+            _opex_preview = res_preview.get("opex_df", [])
+            _opex_y1 = sum(r.get("Año 1", r.get("Coste Anual (€)", 0)) for r in _opex_preview) if _opex_preview else res_preview.get("total_opex_anual", 0)
+            pcol3.metric("OPEX Año 1", f"{fmt(_opex_y1)} €")
             pcol4.metric("Ayudas", f"{fmt(res_preview['total_ayudas'])} €")
         
         col_load, col_del = st.columns(2)
@@ -711,7 +716,12 @@ with tab2:
                     if "capex_df" in res_preview:
                         st.session_state._capex_cargado = pd.DataFrame(res_preview["capex_df"])
                     if "opex_df" in res_preview:
-                        st.session_state._opex_cargado = pd.DataFrame(res_preview["opex_df"])
+                        _opex_cargado = pd.DataFrame(res_preview["opex_df"])
+                        if "Coste Anual (€)" in _opex_cargado.columns:
+                            _opex_cargado = _opex_cargado.rename(columns={"Coste Anual (€)": "Año 1"})
+                            for _a in ["Año 2", "Año 3", "Año 4", "Año 5"]:
+                                _opex_cargado[_a] = _opex_cargado["Año 1"]
+                        st.session_state._opex_cargado = _opex_cargado
                     if "subv_df" in res_preview:
                         st.session_state._subv_cargado = pd.DataFrame(res_preview["subv_df"])
                     st.session_state._mensaje = f"Simulación '{nombre_sel}' cargada"
