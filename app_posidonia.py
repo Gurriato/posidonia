@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime, timedelta, date
-import json, re, base64
+import json, re
 
 # Configuración de la página web de la aplicación
 st.set_page_config(page_title="Propuesta Pliego: Sistema Posidonia", layout="wide", initial_sidebar_state="expanded")
@@ -178,26 +178,26 @@ def fmt(valor, dees=0):
     return s.replace(",", "X").replace(".", ",").replace("X", ".")
 
 def _md(content):
-    def _b64(ruta):
-        with open(ruta, "rb") as f:
-            b64 = base64.b64encode(f.read()).decode()
-        ext = ruta.rsplit(".", 1)[-1]
-        return f"data:image/{ext};base64,{b64}"
-    def _reemplazar_md(m):
+    def _img_md(m):
         alt, ruta = m.groups()
         try:
-            return f"![{alt}]({_b64(ruta)})"
+            st.image(ruta, caption=alt if alt else None)
+            return ""
         except Exception:
             return m.group(0)
-    def _reemplazar_html(m):
-        pre, ruta, resto = m.groups()
+    def _img_html(m):
+        ruta = m.group(1)
+        attrs = m.group(2) or ""
+        ancho = re.search(r'width="([^"]+)"', attrs)
+        kwargs = {"width": int(ancho.group(1))} if ancho else {}
         try:
-            return f'{pre}"{_b64(ruta)}"{resto}'
+            st.image(ruta, **kwargs)
+            return ""
         except Exception:
             return m.group(0)
-    content = re.sub(r'!\[([^\]]*)\]\(((?:img/)?[^)]+)\)', _reemplazar_md, content)
-    content = re.sub(r'(<img\s+[^>]*src=)"((?:img/)?[^"]+)"([^>]*>)', _reemplazar_html, content)
-    return st.markdown(content)
+    content = re.sub(r'!\[([^\]]*)\]\(((?:img/)?[^)]+)\)', _img_md, content)
+    content = re.sub(r'<img\s+[^>]*src="((?:img/)?[^"]+)"([^>]*)>', _img_html, content)
+    st.markdown(content)
 
 # --- INICIALIZAR ESTADO DE SESIÓN ---
 if "edit_mode" not in st.session_state:
