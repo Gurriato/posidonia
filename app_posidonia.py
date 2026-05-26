@@ -548,6 +548,11 @@ with tab2:
     init_sw = sw_base + (500 * (num_drones - 1) if num_drones > 1 else 0)
     init_aesa = sora_base + (1000 * (num_drones - 1) if num_drones > 1 else 0)
     init_logistica = 3000 * num_drones
+    opex_cloud = 1200 + 1200 * num_drones
+    opex_licencias = 360 * num_drones
+    opex_seguro = 600 + (350 * (num_drones - 1) if num_drones > 1 else 0)
+    opex_mantenimiento = 750 * num_drones
+    opex_soporte = 2500 if num_drones <= 3 else 4500
 
     st.markdown("## 📊 Personalización de Costes e Ingresos")
     
@@ -565,7 +570,7 @@ with tab2:
         edited_capex_df = st.data_editor(df_capex_raw, num_rows="dynamic", column_config={
             "Concepto de Inversión": st.column_config.TextColumn("Concepto de Inversión"),
             **{_a: st.column_config.NumberColumn(_a, format="%d €") for _a in _anios_capex}
-        }, key="capex_editor", height=300)
+        }, key=f"capex_editor_{num_drones}", height=300)
         total_capex_por_ano = [int(edited_capex_df[_a].sum()) for _a in _anios_capex]
         total_capex = sum(total_capex_por_ano)
         _cols_capex = st.columns(len(_anios_capex))
@@ -575,14 +580,19 @@ with tab2:
     with col_tab2:
         st.subheader("🔄 Costes Operativos (OPEX) por Año")
         _anios_opex = ["Año 1", "Año 2", "Año 3 (Pico)", "Año 4", "Año 5 (Pico)"]
+        def _opex_row(eje, concepto, base_1, crecimiento=0.03):
+            vals = [base_1]
+            for _ in range(4):
+                vals.append(round(vals[-1] * (1 + crecimiento)))
+            return {"Eje Operativo": eje, "Concepto de Gasto": concepto, "Año 1": vals[0], "Año 2": vals[1], "Año 3 (Pico)": vals[2], "Año 4": vals[3], "Año 5 (Pico)": vals[4]}
         _df_opex_base = pd.DataFrame([
-            {"Eje Operativo": "Tecnología", "Concepto de Gasto": "Cloud + Conectividad 5G Marítima", "Año 1": 3600, "Año 2": 3708, "Año 3 (Pico)": 3819, "Año 4": 3934, "Año 5 (Pico)": 4052},
-            {"Eje Operativo": "Tecnología", "Concepto de Gasto": "Licencias DJI FlightHub 2 Enterprise", "Año 1": 720, "Año 2": 742, "Año 3 (Pico)": 764, "Año 4": 787, "Año 5 (Pico)": 811},
-            {"Eje Operativo": "Legal / Riesgo", "Concepto de Gasto": "Seguros de Flota (Responsabilidad Civil)", "Año 1": 950, "Año 2": 979, "Año 3 (Pico)": 1008, "Año 4": 1038, "Año 5 (Pico)": 1069},
-            {"Eje Operativo": "Mantenimiento", "Concepto de Gasto": "Preventivo Ordinario (Consumibles, hélices)", "Año 1": 1500, "Año 2": 1545, "Año 3 (Pico)": 1591, "Año 4": 1639, "Año 5 (Pico)": 1688},
-            {"Eje Operativo": "Software", "Concepto de Gasto": "Soporte Técnico del Pipeline IA y GIS", "Año 1": 2500, "Año 2": 2575, "Año 3 (Pico)": 2652, "Año 4": 2732, "Año 5 (Pico)": 2814},
-            {"Eje Operativo": "Corporativo", "Concepto de Gasto": "Gestoría S.L. y Tasas Municipales", "Año 1": 1800, "Año 2": 1854, "Año 3 (Pico)": 1910, "Año 4": 1967, "Año 5 (Pico)": 2026},
-            {"Eje Operativo": "Corporativo", "Concepto de Gasto": "Logística e Hibernación Invernal en Seco", "Año 1": 1500, "Año 2": 1545, "Año 3 (Pico)": 1591, "Año 4": 1639, "Año 5 (Pico)": 1688},
+            _opex_row("Tecnología", "Cloud + Conectividad 5G Marítima", opex_cloud),
+            _opex_row("Tecnología", "Licencias DJI FlightHub 2 Enterprise", opex_licencias),
+            _opex_row("Legal / Riesgo", "Seguros de Flota (Responsabilidad Civil)", opex_seguro),
+            _opex_row("Mantenimiento", "Preventivo Ordinario (Consumibles, hélices)", opex_mantenimiento),
+            _opex_row("Software", "Soporte Técnico del Pipeline IA y GIS", opex_soporte),
+            _opex_row("Corporativo", "Gestoría S.L. y Tasas Municipales", 1800),
+            _opex_row("Corporativo", "Logística e Hibernación Invernal en Seco", 1500),
             {"Eje Operativo": "Burocracia", "Concepto de Gasto": "Auditoría Oficial ROAC (Obligatoria NEOTEC)", "Año 1": 2500, "Año 2": 2500, "Año 3 (Pico)": 2500, "Año 4": 0, "Año 5 (Pico)": 0},
             {"Eje Operativo": "Hardware", "Concepto de Gasto": "Renovación Pool de Baterías (Degradación)", "Año 1": 0, "Año 2": 0, "Año 3 (Pico)": 1600, "Año 4": 0, "Año 5 (Pico)": 1648},
             {"Eje Operativo": "Hardware", "Concepto de Gasto": "Overhaul Mayor en Taller Oficial DJI", "Año 1": 0, "Año 2": 0, "Año 3 (Pico)": 2000, "Año 4": 0, "Año 5 (Pico)": 2060},
@@ -592,7 +602,7 @@ with tab2:
             "Eje Operativo": st.column_config.TextColumn("Eje Operativo"),
             "Concepto de Gasto": st.column_config.TextColumn("Concepto de Gasto"),
             **{_a: st.column_config.NumberColumn(_a, format="%d €") for _a in _anios_opex}
-        }, key="opex_editor", height=400)
+        }, key=f"opex_editor_{num_drones}", height=400)
         total_opex_por_ano = [int(edited_opex_df[_a].sum()) for _a in _anios_opex]
         total_opex_anual = total_opex_por_ano[0]
         _cols_tot = st.columns(len(_anios_opex))
