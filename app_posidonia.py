@@ -627,11 +627,15 @@ with tab2:
     with m_col4:
         st.metric("Total Ayudas Captadas", f"{fmt(total_ayudas)} €")
 
+    capex_por_ano = [total_capex if i == 0 else 0 for i in range(5)]
+    opex_por_ano = [total_opex_por_ano[i] + (800 * num_drones if i in [2, 4] else 0) for i in range(5)]
+    subv_por_ano = [total_ayudas if i == 0 else 0 for i in range(5)]
+
     fig_roi = go.Figure()
-    fig_roi.add_trace(go.Scatter(x=anios, y=lista_flujo_acum, mode='lines+markers', name='Flujo Acumulado', line=dict(color='#2ca02c', width=4)))
-    fig_roi.add_trace(go.Scatter(x=anios, y=[0]*5, mode='lines', name='Equilibrio', line=dict(color='red', dash='dash')))
-    fig_roi.update_layout(title="Curva de Retorno (Incluyendo Financiación Externa)", template="plotly_white", yaxis_title="Euros (€)")
-    # FIX: Cambio por width='stretch'
+    fig_roi.add_trace(go.Bar(x=anios, y=capex_por_ano, name="CAPEX", marker_color="#d62728"))
+    fig_roi.add_trace(go.Bar(x=anios, y=opex_por_ano, name="OPEX", marker_color="#ff7f0e"))
+    fig_roi.add_trace(go.Bar(x=anios, y=subv_por_ano, name="Subvenciones", marker_color="#2ca02c"))
+    fig_roi.update_layout(barmode="group", title="Desglose Anual: CAPEX, OPEX y Subvenciones", template="plotly_white", yaxis_title="Euros (€)")
     st.plotly_chart(fig_roi, width='stretch')
 
     # --- SIMULACIÓN 1-50 DRONES ---
