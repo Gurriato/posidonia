@@ -185,18 +185,20 @@ def _md(content):
             return ""
         except Exception:
             return m.group(0)
-    def _img_html(m):
-        ruta = m.group(1)
-        attrs = m.group(2) or ""
-        ancho = re.search(r'width="([^"]+)"', attrs)
-        kwargs = {"width": int(ancho.group(1))} if ancho else {}
-        try:
-            st.image(ruta, **kwargs)
-            return ""
-        except Exception:
-            return m.group(0)
     content = re.sub(r'!\[([^\]]*)\]\(((?:img/)?[^)]+)\)', _img_md, content)
-    content = re.sub(r'<img\s+[^>]*src="((?:img/)?[^"]+)"([^>]*)>', _img_html, content)
+    def _img_html(m):
+        tag = m.group(0)
+        src_m = re.search(r'src\s*=\s*"((?:img/)?[^"]+)"', tag)
+        w_m = re.search(r'width\s*=\s*"(\d+)"', tag)
+        if src_m:
+            kwargs = {"width": int(w_m.group(1))} if w_m else {}
+            try:
+                st.image(src_m.group(1), **kwargs)
+                return ""
+            except Exception:
+                pass
+        return tag
+    content = re.sub(r'<img[^>]+>', _img_html, content)
     st.markdown(content)
 
 # --- INICIALIZAR ESTADO DE SESIÓN ---
