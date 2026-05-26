@@ -29,7 +29,8 @@ if not SUPABASE_DISPONIBLE:
                   nombre TEXT UNIQUE,
                   fecha TEXT,
                   parametros TEXT,
-                  resultados TEXT)''')
+                  resultados TEXT,
+                  es_default INTEGER DEFAULT 0)''')
     _sqlite_conn.execute('''CREATE TABLE IF NOT EXISTS propuesta
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   sec1_resumen TEXT,
@@ -42,6 +43,10 @@ if not SUPABASE_DISPONIBLE:
                   sec7_contacto TEXT,
                   updated_at TEXT)''')
     _sqlite_conn.commit()
+    try:
+        _sqlite_conn.execute("ALTER TABLE simulaciones ADD COLUMN es_default INTEGER DEFAULT 0")
+    except Exception:
+        pass
     _sqlite_conn.close()
 
 def guardar_simulacion(nombre, parametros, resultados):
@@ -102,16 +107,62 @@ def cargar_simulacion(nombre):
 
 def listar_simulaciones():
     if SUPABASE_DISPONIBLE:
-        res = _supabase.table("simulaciones").select("nombre,fecha").order("fecha", desc=True).execute()
-        return [(r["nombre"], r["fecha"]) for r in res.data] if res.data else []
+        res = _supabase.table("simulaciones").select("nombre,fecha,es_default").order("fecha", desc=True).execute()
+        return [(r["nombre"], r["fecha"], r.get("es_default", False)) for r in res.data] if res.data else []
     else:
         import sqlite3
         conn = sqlite3.connect('posidonia.db')
         c = conn.cursor()
-        c.execute("SELECT nombre, fecha FROM simulaciones ORDER BY fecha DESC")
+        c.execute("SELECT nombre, fecha, es_default FROM simulaciones ORDER BY fecha DESC")
         rows = c.fetchall()
         conn.close()
-        return rows
+        return [(r[0], r[1], bool(r[2])) for r in rows] if rows else []
+
+def marcar_default(nombre):
+    if SUPABASE_DISPONIBLE:
+        try:
+            _supabase.table("simulaciones").update({"es_default": 0}).neq("nombre", nombre).execute()
+            _supabase.table("simulaciones").update({"es_default": 1}).eq("nombre", nombre).execute()
+            return True
+        except Exception as e:
+            st.error(f"Error en Supabase: {e}")
+            return False
+    else:
+        import sqlite3
+        conn = sqlite3.connect('posidonia.db')
+        c = conn.cursor()
+        try:
+            c.execute("UPDATE simulaciones SET es_default=0 WHERE nombre!=?", (nombre,))
+            c.execute("UPDATE simulaciones SET es_default=1 WHERE nombre=?", (nombre,))
+            conn.commit()
+            return True
+        except Exception as e:
+            st.error(f"Error al marcar default: {e}")
+            return False
+        finally:
+            conn.close()
+
+def cargar_default():
+    if SUPABASE_DISPONIBLE:
+        try:
+            res = _supabase.table("simulaciones").select("nombre,parametros,resultados").eq("es_default", 1).limit(1).execute()
+            if res.data:
+                return res.data[0]["nombre"], json.loads(res.data[0]["parametros"]), json.loads(res.data[0]["resultados"])
+        except Exception:
+            pass
+    else:
+        import sqlite3
+        conn = sqlite3.connect('posidonia.db')
+        c = conn.cursor()
+        try:
+            c.execute("SELECT nombre, parametros, resultados FROM simulaciones WHERE es_default=1 LIMIT 1")
+            row = c.fetchone()
+            conn.close()
+            if row:
+                return row[0], json.loads(row[1]), json.loads(row[2])
+        except Exception:
+            conn.close()
+    return None, None, None
 
 def guardar_propuesta():
     data = {
@@ -523,6 +574,36 @@ with tab2:
     if "_mensaje" in st.session_state:
         st.success(st.session_state.pop("_mensaje"))
 
+    # Cargar simulación default al iniciar (si existe en BD)
+    if "_default_checked" not in st.session_state:
+        st.session_state._default_checked = True
+        _nom_def, _params_def, _res_def = cargar_default()
+        if _params_def and _res_def:
+            st.session_state._cargar_params = {
+                "sim_num_drones": _params_def["num_drones"],
+                "sim_precio": _params_def["precio_estacion"],
+                "sim_dcto": _params_def["dcto_volumen"] * 100,
+                "sim_sw": _params_def["sw_base"],
+                "sim_sora": _params_def["sora_base"],
+            }
+            if "capex_df" in _res_def:
+                st.session_state._capex_cargado = pd.DataFrame(_res_def["capex_df"])
+            if "opex_df" in _res_def:
+                _oc = pd.DataFrame(_res_def["opex_df"])
+                if "Coste Anual (€)" in _oc.columns:
+                    _oc = _oc.rename(columns={"Coste Anual (€)": "Año 1"})
+                    _oc["Eje Operativo"] = "—"
+                    for _a in ["Año 2", "Año 3 (Pico)", "Año 4", "Año 5 (Pico)"]:
+                        _oc[_a] = _oc["Año 1"]
+                elif "Concepto Operativo" in _oc.columns:
+                    _oc = _oc.rename(columns={"Concepto Operativo": "Concepto de Gasto"})
+                if "Eje Operativo" not in _oc.columns:
+                    _oc["Eje Operativo"] = "—"
+                st.session_state._opex_cargado = _oc
+            if "subv_df" in _res_def:
+                st.session_state._subv_cargado = pd.DataFrame(_res_def["subv_df"])
+            st.rerun()
+
     # --- DEBUG ---
     _debug = st.sidebar.checkbox("🔧 Debug BD", value=False)
     if _debug:
@@ -721,11 +802,12 @@ with tab2:
 
     simulaciones = listar_simulaciones()
     if simulaciones:
-        opciones = [f"{nom} ({fecha[:10]})" for nom, fecha in simulaciones]
+        opciones = [f"{'⭐ ' if es_def else ''}{nom} ({fecha[:10]})" for nom, fecha, es_def in simulaciones]
         nom_select = st.selectbox("Cargar simulación guardada", opciones, key="sim_lista")
         
         idx_sel = opciones.index(nom_select)
         nombre_sel = simulaciones[idx_sel][0]
+        es_default_sel = simulaciones[idx_sel][2]
         params_preview, res_preview = cargar_simulacion(nombre_sel)
         
         if params_preview and res_preview:
@@ -739,8 +821,10 @@ with tab2:
             _opex_y1 = sum(r.get("Año 1", r.get("Coste Anual (€)", 0)) for r in _opex_preview) if _opex_preview else res_preview.get("total_opex_anual", 0)
             pcol3.metric("OPEX Año 1", f"{fmt(_opex_y1)} €")
             pcol4.metric("Ayudas", f"{fmt(res_preview['total_ayudas'])} €")
+            if es_default_sel:
+                st.caption("⭐ Esta es la simulación default — se carga automáticamente al iniciar la app")
         
-        col_load, col_del = st.columns(2)
+        col_load, col_def, col_del = st.columns([2, 1, 1])
         with col_load:
             if st.button("📂 Cargar Simulación", use_container_width=True):
                 if params_preview:
@@ -773,6 +857,12 @@ with tab2:
                     if "subv_df" in res_preview:
                         st.session_state._subv_cargado = pd.DataFrame(res_preview["subv_df"])
                     st.session_state._mensaje = f"Simulación '{nombre_sel}' cargada"
+                    st.rerun()
+        with col_def:
+            btn_label = "⭐ Default" if not es_default_sel else "✅ Default"
+            if st.button(btn_label, use_container_width=True, type="secondary" if not es_default_sel else "primary"):
+                if marcar_default(nombre_sel):
+                    st.session_state._mensaje = f"'{nombre_sel}' marcada como default"
                     st.rerun()
         with col_del:
             if st.button("🗑️ Eliminar Simulación", use_container_width=True):
