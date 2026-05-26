@@ -178,28 +178,40 @@ def fmt(valor, dees=0):
     return s.replace(",", "X").replace(".", ",").replace("X", ".")
 
 def _md(content):
-    def _img_md(m):
-        alt, ruta = m.groups()
-        try:
-            st.image(ruta, caption=alt if alt else None)
-            return ""
-        except Exception:
-            return m.group(0)
-    content = re.sub(r'!\[([^\]]*)\]\(((?:img/)?[^)]+)\)', _img_md, content)
-    def _img_html(m):
-        tag = m.group(0)
-        src_m = re.search(r'src\s*=\s*"((?:img/)?[^"]+)"', tag)
-        w_m = re.search(r'width\s*=\s*"(\d+)"', tag)
-        if src_m:
-            kwargs = {"width": int(w_m.group(1))} if w_m else {}
+    partes = re.split(
+        r'(!\[([^\]]*)\]\(((?:img/)?[^)]+)\)|(<img[^>]+>))',
+        content
+    )
+    i = 0
+    while i < len(partes):
+        t = partes[i]
+        if t is None or t == "":
+            i += 1
+            continue
+        if t.startswith("!["):
+            alt = partes[i+1] if i+1 < len(partes) else ""
+            ruta = partes[i+2] if i+2 < len(partes) else ""
+            i += 4
             try:
-                st.image(src_m.group(1), **kwargs)
-                return ""
+                st.image(ruta, caption=alt if alt else None)
             except Exception:
-                pass
-        return tag
-    content = re.sub(r'<img[^>]+>', _img_html, content)
-    st.markdown(content)
+                st.markdown(t)
+        elif t.startswith("<img"):
+            tag = t
+            src_m = re.search(r'src\s*=\s*"((?:img/)?[^"]+)"', tag)
+            w_m = re.search(r'width\s*=\s*"(\d+)"', tag)
+            if src_m:
+                kwargs = {"width": int(w_m.group(1))} if w_m else {}
+                try:
+                    st.image(src_m.group(1), **kwargs)
+                except Exception:
+                    st.markdown(tag)
+            else:
+                st.markdown(tag)
+            i += 4
+        else:
+            st.markdown(t)
+            i += 1
 
 # --- INICIALIZAR ESTADO DE SESIÓN ---
 if "edit_mode" not in st.session_state:
