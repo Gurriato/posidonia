@@ -547,11 +547,6 @@ with tab2:
     init_sw = sw_base + (500 * (num_drones - 1) if num_drones > 1 else 0)
     init_aesa = sora_base + (1000 * (num_drones - 1) if num_drones > 1 else 0)
     init_logistica = 3000 * num_drones
-    init_cloud = 1200 + (1200 * num_drones)
-    init_flighthub = 360 * num_drones
-    init_seguro = 600 + (350 * (num_drones - 1) if num_drones > 1 else 0)
-    init_mantenimiento = 2000 * num_drones
-    init_soporte = 2500 if num_drones <= 3 else 4500
 
     st.markdown("## 📊 Personalización de Costes e Ingresos")
     
@@ -571,19 +566,30 @@ with tab2:
 
     with col_tab2:
         st.subheader("🔄 Costes Operativos (OPEX) por Año")
-        _anios_opex = ["Año 1", "Año 2", "Año 3", "Año 4", "Año 5"]
-        _df_opex_base = pd.DataFrame({
-            "Concepto Operativo": ["Cloud + Conectividad", "Licencias DJI", "Seguros RC", "Mantenimiento Preventivo", "Soporte Software"],
-        })
-        for _a in _anios_opex:
-            _df_opex_base[_a] = [init_cloud, init_flighthub, init_seguro, init_mantenimiento, init_soporte]
+        _anios_opex = ["Año 1", "Año 2", "Año 3 (Pico)", "Año 4", "Año 5 (Pico)"]
+        _df_opex_base = pd.DataFrame([
+            {"Eje Operativo": "Tecnología", "Concepto de Gasto": "Cloud + Conectividad 5G Marítima", "Año 1": 3600, "Año 2": 3708, "Año 3 (Pico)": 3819, "Año 4": 3934, "Año 5 (Pico)": 4052},
+            {"Eje Operativo": "Tecnología", "Concepto de Gasto": "Licencias DJI FlightHub 2 Enterprise", "Año 1": 720, "Año 2": 742, "Año 3 (Pico)": 764, "Año 4": 787, "Año 5 (Pico)": 811},
+            {"Eje Operativo": "Legal / Riesgo", "Concepto de Gasto": "Seguros de Flota (Responsabilidad Civil)", "Año 1": 950, "Año 2": 979, "Año 3 (Pico)": 1008, "Año 4": 1038, "Año 5 (Pico)": 1069},
+            {"Eje Operativo": "Mantenimiento", "Concepto de Gasto": "Preventivo Ordinario (Consumibles, hélices)", "Año 1": 1500, "Año 2": 1545, "Año 3 (Pico)": 1591, "Año 4": 1639, "Año 5 (Pico)": 1688},
+            {"Eje Operativo": "Software", "Concepto de Gasto": "Soporte Técnico del Pipeline IA y GIS", "Año 1": 2500, "Año 2": 2575, "Año 3 (Pico)": 2652, "Año 4": 2732, "Año 5 (Pico)": 2814},
+            {"Eje Operativo": "Corporativo", "Concepto de Gasto": "Gestoría S.L. y Tasas Municipales", "Año 1": 1800, "Año 2": 1854, "Año 3 (Pico)": 1910, "Año 4": 1967, "Año 5 (Pico)": 2026},
+            {"Eje Operativo": "Corporativo", "Concepto de Gasto": "Logística e Hibernación Invernal en Seco", "Año 1": 1500, "Año 2": 1545, "Año 3 (Pico)": 1591, "Año 4": 1639, "Año 5 (Pico)": 1688},
+            {"Eje Operativo": "Burocracia", "Concepto de Gasto": "Auditoría Oficial ROAC (Obligatoria NEOTEC)", "Año 1": 2500, "Año 2": 2500, "Año 3 (Pico)": 2500, "Año 4": 0, "Año 5 (Pico)": 0},
+            {"Eje Operativo": "Hardware", "Concepto de Gasto": "Renovación Pool de Baterías (Degradación)", "Año 1": 0, "Año 2": 0, "Año 3 (Pico)": 1600, "Año 4": 0, "Año 5 (Pico)": 1648},
+            {"Eje Operativo": "Hardware", "Concepto de Gasto": "Overhaul Mayor en Taller Oficial DJI", "Año 1": 0, "Año 2": 0, "Año 3 (Pico)": 2000, "Año 4": 0, "Año 5 (Pico)": 2060},
+        ])
         _df_opex_raw = st.session_state.pop("_opex_cargado", _df_opex_base)
         edited_opex_df = st.data_editor(_df_opex_raw, num_rows="dynamic", column_config={
-            "Concepto Operativo": st.column_config.TextColumn("Concepto Operativo"),
+            "Eje Operativo": st.column_config.TextColumn("Eje Operativo"),
+            "Concepto de Gasto": st.column_config.TextColumn("Concepto de Gasto"),
             **{_a: st.column_config.NumberColumn(_a, format="%d €") for _a in _anios_opex}
-        }, key="opex_editor", height=300)
+        }, key="opex_editor", height=400)
         total_opex_por_ano = [int(edited_opex_df[_a].sum()) for _a in _anios_opex]
         total_opex_anual = total_opex_por_ano[0]
+        _cols_tot = st.columns(len(_anios_opex))
+        for _j, _a in enumerate(_anios_opex):
+            _cols_tot[_j].metric(f"📊 {_a}", f"{fmt(total_opex_por_ano[_j])} €")
 
     st.subheader("💰 Subvenciones y Financiación Externa")
     _df_subv_base = {
@@ -719,8 +725,13 @@ with tab2:
                         _opex_cargado = pd.DataFrame(res_preview["opex_df"])
                         if "Coste Anual (€)" in _opex_cargado.columns:
                             _opex_cargado = _opex_cargado.rename(columns={"Coste Anual (€)": "Año 1"})
-                            for _a in ["Año 2", "Año 3", "Año 4", "Año 5"]:
+                            _opex_cargado["Eje Operativo"] = "—"
+                            for _a in ["Año 2", "Año 3 (Pico)", "Año 4", "Año 5 (Pico)"]:
                                 _opex_cargado[_a] = _opex_cargado["Año 1"]
+                        elif "Concepto Operativo" in _opex_cargado.columns:
+                            _opex_cargado = _opex_cargado.rename(columns={"Concepto Operativo": "Concepto de Gasto"})
+                        if "Eje Operativo" not in _opex_cargado.columns:
+                            _opex_cargado["Eje Operativo"] = "—"
                         st.session_state._opex_cargado = _opex_cargado
                     if "subv_df" in res_preview:
                         st.session_state._subv_cargado = pd.DataFrame(res_preview["subv_df"])
