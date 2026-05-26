@@ -178,16 +178,26 @@ def fmt(valor, dees=0):
     return s.replace(",", "X").replace(".", ",").replace("X", ".")
 
 def _md(content):
-    def _reemplazar(m):
+    def _b64(ruta):
+        with open(ruta, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode()
+        ext = ruta.rsplit(".", 1)[-1]
+        return f"data:image/{ext};base64,{b64}"
+    def _reemplazar_md(m):
         alt, ruta = m.groups()
         try:
-            with open(ruta, "rb") as f:
-                b64 = base64.b64encode(f.read()).decode()
-            ext = ruta.rsplit(".", 1)[-1]
-            return f"![{alt}](data:image/{ext};base64,{b64})"
+            return f"![{alt}]({_b64(ruta)})"
         except Exception:
             return m.group(0)
-    return st.markdown(re.sub(r"!\[([^\]]*)\]\(((?:img/)?[^)]+)\)", _reemplazar, content))
+    def _reemplazar_html(m):
+        pre, ruta, resto = m.groups()
+        try:
+            return f'{pre}"{_b64(ruta)}"{resto}'
+        except Exception:
+            return m.group(0)
+    content = re.sub(r'!\[([^\]]*)\]\(((?:img/)?[^)]+)\)', _reemplazar_md, content)
+    content = re.sub(r'(<img\s+[^>]*src=)"((?:img/)?[^"]+)"([^>]*>)', _reemplazar_html, content)
+    return st.markdown(content)
 
 # --- INICIALIZAR ESTADO DE SESIÓN ---
 if "edit_mode" not in st.session_state:
