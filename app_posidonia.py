@@ -615,12 +615,15 @@ with tab2:
     ingresos_anuales = num_drones * precio_estacion
     anios = ["Año 1", "Año 2", "Año 3", "Año 4", "Año 5"]
     lista_flujo_acum = []
+    lista_flujo_anual = []
     acumulado = 0
     for i in range(5):
         ing = ingresos_anuales + (total_ayudas if i == 0 else 0)
         gas = total_capex_por_ano[i] + total_opex_por_ano[i] + (800 * num_drones if i in [2, 4] else 0)
-        acumulado += (ing - gas)
+        flujo_anual = ing - gas
+        acumulado += flujo_anual
         lista_flujo_acum.append(acumulado)
+        lista_flujo_anual.append(flujo_anual)
 
     st.divider()
     
@@ -643,6 +646,7 @@ with tab2:
     fig_combo.add_trace(go.Bar(x=anios, y=opex_barras, name="OPEX", marker_color="#ff7f0e"), secondary_y=False)
     fig_combo.add_trace(go.Bar(x=anios, y=subv_por_ano, name="Subvenciones", marker_color="#2ca02c"), secondary_y=False)
     fig_combo.add_trace(go.Scatter(x=anios, y=lista_flujo_acum, mode='lines+markers', name='Flujo Acumulado', line=dict(color='#1f77b4', width=4)), secondary_y=True)
+    fig_combo.add_trace(go.Scatter(x=anios, y=lista_flujo_anual, mode='lines+markers', name='Flujo de Caja Anual', line=dict(color='#17becf', width=2, dash='dot')), secondary_y=True)
     fig_combo.add_trace(go.Scatter(x=anios, y=[0]*5, mode='lines', name='Equilibrio', line=dict(color='red', dash='dash')), secondary_y=True)
     fig_combo.update_layout(barmode="group", title="Proyección Financiera 5 Años | Barras: Desglose Anual · Línea: Flujo Acumulado", template="plotly_white", hovermode="x unified")
     fig_combo.update_yaxes(title_text="Euros (€) por año", secondary_y=False)
@@ -690,6 +694,7 @@ with tab2:
                     "total_fondo_perdido": int(total_fondo_perdido),
                     "exposicion": int(exposicion),
                     "flujo_acum_5anos": [int(f) for f in lista_flujo_acum],
+                    "flujo_anual_5anos": [int(f) for f in lista_flujo_anual],
                     "capex_df": edited_capex_df.to_dict('records'),
                     "opex_df": edited_opex_df.to_dict('records'),
                     "subv_df": edited_subv_df.to_dict('records')
