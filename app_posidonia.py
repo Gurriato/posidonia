@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
+from plotly.subplots import make_subplots
 from datetime import datetime, timedelta, date
 import json, re
 
@@ -627,21 +628,20 @@ with tab2:
     with m_col4:
         st.metric("Total Ayudas Captadas", f"{fmt(total_ayudas)} €")
 
-    fig_roi = go.Figure()
-    fig_roi.add_trace(go.Scatter(x=anios, y=lista_flujo_acum, mode='lines+markers', name='Flujo Acumulado', line=dict(color='#2ca02c', width=4)))
-    fig_roi.add_trace(go.Scatter(x=anios, y=[0]*5, mode='lines', name='Equilibrio', line=dict(color='red', dash='dash')))
-    fig_roi.update_layout(title="Curva de Retorno (Incluyendo Financiación Externa)", template="plotly_white", yaxis_title="Euros (€)")
-    st.plotly_chart(fig_roi, width='stretch')
-
     capex_por_ano = [total_capex if i == 0 else 0 for i in range(5)]
     opex_por_ano = [total_opex_por_ano[i] + (800 * num_drones if i in [2, 4] else 0) for i in range(5)]
     subv_por_ano = [total_ayudas if i == 0 else 0 for i in range(5)]
-    fig_barras = go.Figure()
-    fig_barras.add_trace(go.Bar(x=anios, y=capex_por_ano, name="CAPEX", marker_color="#d62728"))
-    fig_barras.add_trace(go.Bar(x=anios, y=opex_por_ano, name="OPEX", marker_color="#ff7f0e"))
-    fig_barras.add_trace(go.Bar(x=anios, y=subv_por_ano, name="Subvenciones", marker_color="#2ca02c"))
-    fig_barras.update_layout(barmode="group", title="Desglose Anual: CAPEX, OPEX y Subvenciones", template="plotly_white", yaxis_title="Euros (€)")
-    st.plotly_chart(fig_barras, width='stretch')
+
+    fig_combo = make_subplots(specs=[[{"secondary_y": True}]])
+    fig_combo.add_trace(go.Bar(x=anios, y=capex_por_ano, name="CAPEX", marker_color="#d62728"), secondary_y=False)
+    fig_combo.add_trace(go.Bar(x=anios, y=opex_por_ano, name="OPEX", marker_color="#ff7f0e"), secondary_y=False)
+    fig_combo.add_trace(go.Bar(x=anios, y=subv_por_ano, name="Subvenciones", marker_color="#2ca02c"), secondary_y=False)
+    fig_combo.add_trace(go.Scatter(x=anios, y=lista_flujo_acum, mode='lines+markers', name='Flujo Acumulado', line=dict(color='#1f77b4', width=4)), secondary_y=True)
+    fig_combo.add_trace(go.Scatter(x=anios, y=[0]*5, mode='lines', name='Equilibrio', line=dict(color='red', dash='dash')), secondary_y=True)
+    fig_combo.update_layout(barmode="group", title="Proyección Financiera 5 Años | Barras: Desglose Anual · Línea: Flujo Acumulado", template="plotly_white", hovermode="x unified")
+    fig_combo.update_yaxes(title_text="Euros (€) por año", secondary_y=False)
+    fig_combo.update_yaxes(title_text="Flujo Acumulado (€)", secondary_y=True)
+    st.plotly_chart(fig_combo, width='stretch')
 
     # --- SIMULACIÓN 1-50 DRONES ---
     st.subheader("📊 Gráfico de Escalabilidad (1 a 50 Drones)")
